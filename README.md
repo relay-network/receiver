@@ -18,7 +18,7 @@ to your [React](https://reactjs.org/) app.
 ## Join the Team!
 
 [Relay](https://relay.cc) is hiring! If you're interested in working
-on this project, or any of the [other Relay projects](https://github.com/orgs/relaycc/repositories), check out our [jobs
+on this project, or any of the [other Relay projects](https://github.com/orgs/relay-network/repositories), check out our [jobs
 page](https://jobs.lever.co/relay) 🎉.
 
 ## Documentation
@@ -36,7 +36,7 @@ npm install @relaycc/xmtp-hooks
 
 TODO A FEW EXAMPLES HERE
 
-Check out the [Relay XMTP client](https://github.relay.cc/xmtp) to get started with a
+Check out the [Relay XMTP client](https://github.com/relay-network/xmtp) to get started with a
 pre-built UI 🌈 on top of `xmtp-hooks`.
 
 ## Coming soon
@@ -55,9 +55,7 @@ tons of kudos 🎉 if you also [open an issue](TODO).
 `xmtp-hooks` in the wild:
 
 - Join us on [Discord](https://discord.com/invite/DTMKf63ZSf) 💬
-- Participate in [discussions on GitHub](https://github.com/relaycc/xmtp-hooks/discussions) 🙋‍♂️
 - Follow [Relay](https://twitter.com/relay_eth) on for project updates 🤝
-- Share [your project/organization](https://github.com/relaycc/xmtp-hooks/discussions/2) ✨
 
 ## Contributing
 
