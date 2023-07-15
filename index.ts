@@ -1,2 +1,2 @@
-export * from "./hooks";
-export type { Conversation } from "./lib";
+export * from "./xmtp-hooks.hooks";
+export type { Conversation } from "./xmtp-hooks.lib";

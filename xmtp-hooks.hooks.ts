@@ -1,23 +1,9 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useEffect } from "react";
 import { create } from "zustand";
 import * as Comlink from "comlink";
 import { Signer } from "@ethersproject/abstract-signer";
-import {
-  Xmtp,
-  Conversation,
-  Message,
-  Preview,
-  insertMessagesIfNew,
-  insertOrUpdatePreviews,
-  getNextPageOptions,
-  sortByMostRecentPreview,
-  uniqueConversationKey,
-  ClientOptions,
-} from "./lib";
-import XmtpWorker from "./worker?worker&inline";
-import { SortDirection } from "@relaycc/xmtp-js";
-
-type Identity<T> = (x: T) => T;
+import * as Lib from "./xmtp-hooks.lib";
+import XmtpWorker from "./xmtp-hooks.worker.js?worker&inline";
 
 /* **************************************************************************
  *
@@ -58,9 +44,9 @@ const isValidTransition = (transition: Transition) => {
 
 type XmtpFromStore = {
   address: string;
-  env?: string;
+  env?: "local" | "production" | "dev";
   export?: string;
-  worker: Comlink.Remote<Xmtp>;
+  worker: Comlink.Remote<Lib.Xmtp>;
 };
 
 const MISSES_STORE_KEY = "RANDOM STRING HERE";
@@ -114,7 +100,7 @@ export const useXmtp = ({
 }: {
   clientAddress?: string | null;
   wallet?: Signer | null;
-  opts?: Partial<ClientOptions>;
+  opts?: Partial<Lib.ClientOptions>;
 }) => {
   /* **************************************************************************
    *
@@ -124,13 +110,8 @@ export const useXmtp = ({
 
   const [xmtp, setXmtp] = useXmtpStore({ clientAddress });
 
-  const isClientIdle = xmtp.id === "idle";
-  const isClientPending = xmtp.id === "pending";
-  const isClientSuccess = xmtp.id === "success";
-  const isClientError = xmtp.id === "error";
-
   const isStartClientReady =
-    (isClientIdle || isClientError) &&
+    (isIdle(xmtp) || isError(xmtp)) &&
     (wallet !== null || typeof opts?.privateKeyOverride === "string");
 
   const startClient = useMemo(() => {
@@ -140,7 +121,7 @@ export const useXmtp = ({
       return async () => {
         try {
           setXmtp({ id: "pending" });
-          const worker = Comlink.wrap<Xmtp>(new XmtpWorker());
+          const worker = Comlink.wrap<Lib.Xmtp>(new XmtpWorker());
           const client = await worker.startClient(
             (() => {
               if (wallet === null) {
@@ -165,8 +146,8 @@ export const useXmtp = ({
     }
   }, [xmtp.id, clientAddress, wallet, opts]);
 
-  const stopClient: Xmtp["stopClient"] | null = useMemo(() => {
-    if (!isClientSuccess) {
+  const stopClient: Lib.Xmtp["stopClient"] | null = useMemo(() => {
+    if (!isSuccess(xmtp)) {
       return null;
     } else {
       return async () => {
@@ -182,16 +163,17 @@ export const useXmtp = ({
    *
    * *************************************************************************/
 
-  const fetchConversations: Xmtp["fetchConversations"] | null = useMemo(() => {
-    if (!isClientSuccess) {
-      return null;
-    } else {
-      return xmtp.data.worker.fetchConversations;
-    }
-  }, [xmtp]);
+  const fetchConversations: Lib.Xmtp["fetchConversations"] | null =
+    useMemo(() => {
+      if (!isSuccess(xmtp)) {
+        return null;
+      } else {
+        return xmtp.data.worker.fetchConversations;
+      }
+    }, [xmtp]);
 
-  const fetchMessages: Xmtp["fetchMessages"] | null = useMemo(() => {
-    if (!isClientSuccess) {
+  const fetchMessages: Lib.Xmtp["fetchMessages"] | null = useMemo(() => {
+    if (!isSuccess(xmtp)) {
       return null;
     } else {
       return async ({ conversation, opts }) => {
@@ -200,77 +182,80 @@ export const useXmtp = ({
     }
   }, [xmtp]);
 
-  const fetchPeerOnNetwork: Xmtp["fetchPeerOnNetwork"] | null = useMemo(() => {
-    if (!isClientSuccess) {
-      return null;
-    } else {
-      return xmtp.data.worker.fetchPeerOnNetwork;
-    }
-  }, [xmtp]);
+  const fetchPeerOnNetwork: Lib.Xmtp["fetchPeerOnNetwork"] | null =
+    useMemo(() => {
+      if (!isSuccess(xmtp)) {
+        return null;
+      } else {
+        return xmtp.data.worker.fetchPeerOnNetwork;
+      }
+    }, [xmtp]);
 
-  const sendMessage: Xmtp["sendMessage"] | null = useMemo(() => {
-    if (!isClientSuccess) {
+  const sendMessage: Lib.Xmtp["sendMessage"] | null = useMemo(() => {
+    if (!isSuccess(xmtp)) {
       return null;
     } else {
       return xmtp.data.worker.sendMessage;
     }
   }, [xmtp]);
 
-  const startStreamingMessages: Xmtp["startStreamingMessages"] | null =
+  const startStreamingMessages: Lib.Xmtp["startStreamingMessages"] | null =
     useMemo(() => {
-      if (!isClientSuccess) {
+      if (!isSuccess(xmtp)) {
         return null;
       } else {
         return xmtp.data.worker.startStreamingMessages;
       }
     }, [xmtp]);
 
-  const stopStreamingMessages: Xmtp["stopStreamingMessages"] | null =
+  const stopStreamingMessages: Lib.Xmtp["stopStreamingMessages"] | null =
     useMemo(() => {
-      if (!isClientSuccess) {
+      if (!isSuccess(xmtp)) {
         return null;
       } else {
         return xmtp.data.worker.stopStreamingMessages;
       }
     }, [xmtp]);
 
-  const listenToStreamingMessages: Xmtp["listenToStreamingMessages"] | null =
-    useMemo(() => {
-      if (!isClientSuccess) {
-        return null;
-      } else {
-        return async (conversation, handler) => {
-          return await xmtp.data.worker.listenToStreamingMessages(
-            conversation,
-            Comlink.proxy(handler)
-          );
-        };
-      }
-    }, [xmtp]);
+  const listenToStreamingMessages:
+    | Lib.Xmtp["listenToStreamingMessages"]
+    | null = useMemo(() => {
+    if (!isSuccess(xmtp)) {
+      return null;
+    } else {
+      return async (conversation, handler) => {
+        return await xmtp.data.worker.listenToStreamingMessages(
+          conversation,
+          Comlink.proxy(handler)
+        );
+      };
+    }
+  }, [xmtp]);
 
   const startStreamingConversations:
-    | Xmtp["startStreamingConversations"]
+    | Lib.Xmtp["startStreamingConversations"]
     | null = useMemo(() => {
-    if (!isClientSuccess) {
+    if (!isSuccess(xmtp)) {
       return null;
     } else {
       return xmtp.data.worker.startStreamingConversations;
     }
   }, [xmtp]);
 
-  const stopStreamingConversations: Xmtp["stopStreamingConversations"] | null =
-    useMemo(() => {
-      if (!isClientSuccess) {
-        return null;
-      } else {
-        return xmtp.data.worker.stopStreamingConversations;
-      }
-    }, [xmtp]);
+  const stopStreamingConversations:
+    | Lib.Xmtp["stopStreamingConversations"]
+    | null = useMemo(() => {
+    if (!isSuccess(xmtp)) {
+      return null;
+    } else {
+      return xmtp.data.worker.stopStreamingConversations;
+    }
+  }, [xmtp]);
 
   const listenToStreamingConversations:
-    | Xmtp["listenToStreamingConversations"]
+    | Lib.Xmtp["listenToStreamingConversations"]
     | null = useMemo(() => {
-    if (!isClientSuccess) {
+    if (!isSuccess(xmtp)) {
       return null;
     } else {
       return async (handler) => {
@@ -281,18 +266,19 @@ export const useXmtp = ({
     }
   }, [xmtp]);
 
-  const startStreamingAllMessages: Xmtp["startStreamingAllMessages"] | null =
-    useMemo(() => {
-      if (!isClientSuccess) {
-        return null;
-      } else {
-        return xmtp.data.worker.startStreamingAllMessages;
-      }
-    }, [xmtp]);
+  const startStreamingAllMessages:
+    | Lib.Xmtp["startStreamingAllMessages"]
+    | null = useMemo(() => {
+    if (!isSuccess(xmtp)) {
+      return null;
+    } else {
+      return xmtp.data.worker.startStreamingAllMessages;
+    }
+  }, [xmtp]);
 
-  const stopStreamingAllMessages: Xmtp["stopStreamingAllMessages"] | null =
+  const stopStreamingAllMessages: Lib.Xmtp["stopStreamingAllMessages"] | null =
     useMemo(() => {
-      if (!isClientSuccess) {
+      if (!isSuccess(xmtp)) {
         return null;
       } else {
         return xmtp.data.worker.stopStreamingAllMessages;
@@ -300,9 +286,9 @@ export const useXmtp = ({
     }, [xmtp]);
 
   const listenToStreamingAllMessages:
-    | Xmtp["listenToStreamingAllMessages"]
+    | Lib.Xmtp["listenToStreamingAllMessages"]
     | null = useMemo(() => {
-    if (!isClientSuccess) {
+    if (!isSuccess(xmtp)) {
       return null;
     } else {
       return async (handler) => {
@@ -316,10 +302,10 @@ export const useXmtp = ({
   return {
     startClient,
     stopClient,
-    isClientIdle,
-    isClientPending,
-    isClientSuccess,
-    isClientError,
+    isClientIdle: isIdle(xmtp),
+    isClientPending: isPending(xmtp),
+    isClientSuccess: isSuccess(xmtp),
+    isClientError: isError(xmtp),
     client: xmtp.data,
     clientError: xmtp.error,
     fetchConversations,
@@ -345,6 +331,60 @@ export const useXmtp = ({
  *
  *
  *
+ * usePeerOnNetworkStore
+ *
+ *
+ *
+ *
+ *
+ * *************************************************************************/
+
+const peerOnNetworkStore = create<Record<string, AsyncState<boolean>>>(
+  () => ({})
+);
+
+export const usePeerOnNetwork = ({
+  peerAddress,
+  env,
+}: {
+  peerAddress?: string | null;
+  env?: "local" | "dev" | "production" | null;
+}) => {
+  const key = (() => {
+    if (typeof env !== "string" || typeof peerAddress !== "string") {
+      return MISSES_STORE_KEY;
+    } else {
+      return `${env}-${peerAddress}`;
+    }
+  })();
+  const peerOnNetwork = peerOnNetworkStore((state) => state[key]) || {
+    id: "idle",
+  };
+
+  const setPeerOnNetwork = (
+    input: AsyncState<boolean> | Identity<AsyncState<boolean>>
+  ) => {
+    peerOnNetworkStore.setState((state) => {
+      return {
+        ...state,
+        [key]:
+          typeof input === "function"
+            ? input(state[key] || { id: "idle" })
+            : input,
+      };
+    });
+  };
+
+  return [peerOnNetwork, setPeerOnNetwork] as const;
+};
+
+/* **************************************************************************
+ *
+ *
+ *
+ *
+ *
+ *
  * useMessagesStore
  *
  *
@@ -353,7 +393,7 @@ export const useXmtp = ({
  *
  * *************************************************************************/
 
-const useMessagesStore = create<Record<string, AsyncState<Message[]>>>(
+const useMessagesStore = create<Record<string, AsyncState<Lib.Message[]>>>(
   () => ({})
 );
 
@@ -362,13 +402,19 @@ export const useMessages = ({
   conversation,
 }: {
   clientAddress?: string | null;
-  conversation: Conversation;
+  conversation?: Lib.Conversation | null;
 }) => {
-  const key = `${clientAddress}-${uniqueConversationKey(conversation)}`;
+  const key = (() => {
+    if (nullish(clientAddress) || nullish(conversation)) {
+      return MISSES_STORE_KEY;
+    } else {
+      return `${clientAddress}-${Lib.uniqueConversationKey(conversation)}`;
+    }
+  })();
   const messages = useMessagesStore((state) => state[key]) || { id: "idle" };
 
   const setMessages = (
-    input: AsyncState<Message[]> | Identity<AsyncState<Message[]>>
+    input: AsyncState<Lib.Message[]> | Identity<AsyncState<Lib.Message[]>>
   ) => {
     useMessagesStore.setState((state) => {
       return {
@@ -408,9 +454,15 @@ export const useStreaming = ({
   conversation,
 }: {
   clientAddress?: string | null;
-  conversation: Conversation;
+  conversation?: Lib.Conversation | null;
 }) => {
-  const key = `${clientAddress}-${uniqueConversationKey(conversation)}`;
+  const key = (() => {
+    if (nullish(clientAddress) || nullish(conversation)) {
+      return MISSES_STORE_KEY;
+    } else {
+      return `${clientAddress}-${Lib.uniqueConversationKey(conversation)}`;
+    }
+  })();
   const streaming = useStreamingStore((state) => state[key]) || { id: "idle" };
 
   const setStreaming = (
@@ -445,7 +497,7 @@ export const useStreaming = ({
  *
  * *************************************************************************/
 
-const sentMessagesStore = create<Record<string, AsyncStateArray<Message>>>(
+const sentMessagesStore = create<Record<string, AsyncStateArray<Lib.Message>>>(
   () => ({})
 );
 
@@ -454,13 +506,19 @@ export const useSentMessagesStore = ({
   conversation,
 }: {
   clientAddress?: string | null;
-  conversation: Conversation;
+  conversation?: Lib.Conversation | null;
 }) => {
-  const key = `${clientAddress}-${uniqueConversationKey(conversation)}`;
+  const key = (() => {
+    if (nullish(clientAddress) || nullish(conversation)) {
+      return MISSES_STORE_KEY;
+    } else {
+      return `${clientAddress}-${Lib.uniqueConversationKey(conversation)}`;
+    }
+  })();
   const sentMessages = sentMessagesStore((state) => state[key]) || [];
 
   const setSentMessages = (
-    input: AsyncStateArray<Message> | Identity<AsyncStateArray<Message>>
+    input: AsyncStateArray<Lib.Message> | Identity<AsyncStateArray<Lib.Message>>
   ) => {
     sentMessagesStore.setState((state) => {
       return {
@@ -496,8 +554,8 @@ export const useConversation = ({
 }: {
   clientAddress?: string | null;
   wallet?: Signer | null;
-  opts?: Partial<ClientOptions>;
-  conversation: Conversation;
+  opts?: Partial<Lib.ClientOptions>;
+  conversation?: Lib.Conversation | null;
 }) => {
   const {
     startClient,
@@ -523,14 +581,12 @@ export const useConversation = ({
 
   const [messages, setMessages] = useMessages({ clientAddress, conversation });
 
-  const isMessagesIdle = messages.id === "idle";
-  const isMessagesPending = messages.id === "pending";
-  const isMessagesError = messages.id === "error";
-  const isMessagesFetching = messages.id === "fetching";
-  const isMessagesSuccess = messages.id === "success";
-
   useEffect(() => {
-    if (!isMessagesIdle || fetchMessages === null || conversation === null) {
+    if (
+      !isSuccess(messages) ||
+      nullish(fetchMessages) ||
+      nullish(conversation)
+    ) {
       return;
     } else {
       (async () => {
@@ -538,7 +594,7 @@ export const useConversation = ({
           setMessages({ id: "pending" });
           const messages = await fetchMessages({
             conversation,
-            opts: getNextPageOptions({}),
+            opts: Lib.getNextPageOptions({}),
           });
           setMessages({ id: "success", data: messages });
         } catch (error) {
@@ -549,7 +605,11 @@ export const useConversation = ({
   }, [fetchMessages, conversation]);
 
   const fetchMoreMessages = useMemo(() => {
-    if (!isMessagesSuccess || fetchMessages === null || conversation === null) {
+    if (
+      !isSuccess(messages) ||
+      nullish(fetchMessages) ||
+      nullish(conversation)
+    ) {
       return null;
     } else {
       return async () => {
@@ -566,7 +626,7 @@ export const useConversation = ({
           });
           const newMessages = await fetchMessages({
             conversation,
-            opts: getNextPageOptions({ messages: messages.data }),
+            opts: Lib.getNextPageOptions({ messages: messages.data }),
           });
           setMessages((prev) => {
             if (prev.id !== "fetching") {
@@ -574,7 +634,7 @@ export const useConversation = ({
             } else {
               return {
                 id: "success",
-                data: insertMessagesIfNew({
+                data: Lib.insertMessagesIfNew({
                   messages: prev.data,
                   newMessages,
                 }),
@@ -608,18 +668,13 @@ export const useConversation = ({
     conversation,
   });
 
-  const isStreamingIdle = streaming.id === "idle";
-  const isStreamingPending = streaming.id === "pending";
-  const isStreamingError = streaming.id === "error";
-  const isStreamingSuccess = streaming.id === "success";
-
   useEffect(() => {
     if (
-      !isStreamingIdle ||
-      startStreamingMessages === null ||
-      stopStreamingMessages === null ||
-      listenToStreamingMessages === null ||
-      conversation === null
+      !isIdle(streaming) ||
+      nullish(startStreamingMessages) ||
+      nullish(stopStreamingMessages) ||
+      nullish(listenToStreamingMessages) ||
+      nullish(conversation)
     ) {
       return;
     } else {
@@ -634,7 +689,7 @@ export const useConversation = ({
               } else {
                 return {
                   id: "success",
-                  data: insertMessagesIfNew({
+                  data: Lib.insertMessagesIfNew({
                     messages: prev.data || [],
                     newMessages: [message],
                   }),
@@ -659,17 +714,13 @@ export const useConversation = ({
    *
    * *************************************************************************/
 
-  const [peerOnNetwork, setPeerOnNetwork] = useState<AsyncState<boolean>>({
-    id: "idle",
+  const [peerOnNetwork, setPeerOnNetwork] = usePeerOnNetwork({
+    peerAddress: conversation?.peerAddress,
+    env: client?.env,
   });
 
-  const isPeerOnNetworkIdle = peerOnNetwork.id === "idle";
-  const isPeerOnNetworkPending = peerOnNetwork.id === "pending";
-  const isPeerOnNetworkError = peerOnNetwork.id === "error";
-  const isPeerOnNetworkSuccess = peerOnNetwork.id === "success";
-
   useEffect(() => {
-    if (fetchPeerOnNetwork === null) {
+    if (fetchPeerOnNetwork === null || nullish(conversation)) {
       return;
     } else {
       (async () => {
@@ -683,7 +734,7 @@ export const useConversation = ({
       })();
     }
     // Conversation.peerAddress in the deps is a hack to refetch for different conversations.
-  }, [fetchPeerOnNetwork, conversation.peerAddress]);
+  }, [fetchPeerOnNetwork, conversation?.peerAddress]);
 
   /* **************************************************************************
    *
@@ -704,7 +755,7 @@ export const useConversation = ({
     if (
       peerOnNetwork.data !== true ||
       sendMessage === null ||
-      conversation === null
+      nullish(conversation)
     ) {
       return null;
     } else {
@@ -722,7 +773,7 @@ export const useConversation = ({
             } else {
               return {
                 id: prev.id,
-                data: insertMessagesIfNew({
+                data: Lib.insertMessagesIfNew({
                   messages: prev.data || [],
                   newMessages: [sent],
                 }),
@@ -768,24 +819,22 @@ export const useConversation = ({
     isClientSuccess,
     clientError,
     client,
-    isMessagesIdle,
-    isMessagesPending,
-    isMessagesError,
-    isMessagesSuccess,
-    isMessagesFetching,
+    isMessagesSuccess: isSuccess(messages),
+    isMessagesError: isError(messages),
+    isMessagesFetching: isFetching(messages),
     messagesError: messages.error,
     messages: messages.data,
     fetchMoreMessages,
-    isPeerOnNetworkIdle,
-    isPeerOnNetworkPending,
-    isPeerOnNetworkError,
-    isPeerOnNetworkSuccess,
+    isPeerOnNetworkIdle: isIdle(peerOnNetwork),
+    isPeerOnNetworkPending: isPending(peerOnNetwork),
+    isPeerOnNetworkError: isError(peerOnNetwork),
+    isPeerOnNetworkSuccess: isSuccess(peerOnNetwork),
     isPeerOnNetwork: peerOnNetwork.data,
     peerOnNetworkError: peerOnNetwork.error,
-    isStreamingIdle,
-    isStreamingPending,
-    isStreamingError,
-    isStreamingSuccess,
+    isStreamingIdle: isIdle(streaming),
+    isStreamingPending: isPending(streaming),
+    isStreamingError: isError(streaming),
+    isStreamingSuccess: isSuccess(streaming),
     isStreaming: streaming.data,
     streamingError: streaming.error,
     isSending,
@@ -808,7 +857,9 @@ export const useConversation = ({
  *
  * *************************************************************************/
 
-const previewsStore = create<Record<string, AsyncState<Preview[]>>>(() => ({}));
+const previewsStore = create<Record<string, AsyncState<Lib.Preview[]>>>(
+  () => ({})
+);
 
 export const usePreviewsStore = ({
   clientAddress,
@@ -819,7 +870,7 @@ export const usePreviewsStore = ({
   const previews = previewsStore((state) => state[key]) || { id: "idle" };
 
   const setPreviews = (
-    input: AsyncState<Preview[]> | Identity<AsyncState<Preview[]>>
+    input: AsyncState<Lib.Preview[]> | Identity<AsyncState<Lib.Preview[]>>
   ) => {
     previewsStore.setState((state) => {
       return {
@@ -903,7 +954,7 @@ export const usePreviews = ({
 }: {
   clientAddress?: string | null;
   wallet?: Signer | null;
-  opts?: Partial<ClientOptions>;
+  opts?: Partial<Lib.ClientOptions>;
 }) => {
   const {
     startClient,
@@ -930,12 +981,14 @@ export const usePreviews = ({
     if (fetchMessages === null) {
       return null;
     } else {
-      return async (conversation: Conversation): Promise<Message | null> => {
+      return async (
+        conversation: Lib.Conversation
+      ): Promise<Lib.Message | null> => {
         const messages = await fetchMessages({
           conversation,
           opts: {
             limit: 1,
-            direction: SortDirection.SORT_DIRECTION_DESCENDING,
+            direction: "descending",
           },
         });
         if (messages.length === 0) {
@@ -957,16 +1010,13 @@ export const usePreviews = ({
     clientAddress,
   });
 
-  const isPreviewsIdle = previews.id === "idle";
-  const isPreviewsPending = previews.id === "pending";
-  const isPreviewsError = previews.id === "error";
-  const isPreviewsSuccess = previews.id === "success";
-
   const fetchPreview = useMemo(() => {
     if (fetchMostRecentMessage === null) {
       return null;
     } else {
-      return async (conversation: Conversation): Promise<Preview | null> => {
+      return async (
+        conversation: Lib.Conversation
+      ): Promise<Lib.Preview | null> => {
         const mostRecentMessage = await fetchMostRecentMessage(conversation);
         if (mostRecentMessage === null) {
           return null;
@@ -982,7 +1032,7 @@ export const usePreviews = ({
 
   useEffect(() => {
     if (
-      !isPreviewsIdle ||
+      !isIdle(previews) ||
       fetchConversations === null ||
       fetchPreview === null
     ) {
@@ -1004,7 +1054,7 @@ export const usePreviews = ({
             })
           );
           const previews = maybeNullPreviews.filter(
-            (preview): preview is Preview => preview !== null
+            (preview): preview is Lib.Preview => preview !== null
           );
           setPreviews((prev) => {
             if (prev.id !== "pending") {
@@ -1012,7 +1062,7 @@ export const usePreviews = ({
             } else {
               return {
                 id: "success",
-                data: insertOrUpdatePreviews(prev.data || [], previews),
+                data: Lib.insertOrUpdatePreviews(prev.data || [], previews),
               };
             }
           });
@@ -1031,13 +1081,9 @@ export const usePreviews = ({
 
   const [streaming, setStreaming] = useGlobalStreamingStore({ clientAddress });
 
-  const isStreamingIdle = streaming.id === "idle";
-  const isStreamingPending = streaming.id === "pending";
-  const isStreamingError = streaming.id === "error";
-
   useEffect(() => {
     if (
-      !isStreamingIdle ||
+      !isIdle(streaming) ||
       startStreamingAllMessages === null ||
       stopStreamingAllMessages === null ||
       listenToStreamingAllMessages === null
@@ -1054,8 +1100,8 @@ export const usePreviews = ({
             }
           });
           await startStreamingAllMessages();
-          await listenToStreamingAllMessages((message: Message) => {
-            const preview: Preview = {
+          await listenToStreamingAllMessages((message) => {
+            const preview: Lib.Preview = {
               ...message.conversation,
               preview: message,
             };
@@ -1065,7 +1111,7 @@ export const usePreviews = ({
               } else {
                 return {
                   ...prev,
-                  data: insertOrUpdatePreviews(prev.data || [], preview),
+                  data: Lib.insertOrUpdatePreviews(prev.data || [], preview),
                 };
               }
             });
@@ -1090,7 +1136,7 @@ export const usePreviews = ({
     if (previews.data === undefined) {
       return null;
     } else {
-      return sortByMostRecentPreview(previews.data);
+      return Lib.sortByMostRecentPreview(previews.data);
     }
   }, [previews.data]);
 
@@ -1102,19 +1148,34 @@ export const usePreviews = ({
     isClientError,
     client,
     clientError,
-    isStreamingIdle,
-    isStreamingPending,
-    isStreamingError,
+    isStreamingIdle: isIdle(streaming),
+    isStreamingPending: isPending(streaming),
+    isStreamingError: isError(streaming),
     isStreaming: streaming.data,
     streamingError: streaming.error,
-    isPreviewsIdle,
-    isPreviewsPending,
-    isPreviewsError,
-    isPreviewsSuccess,
+    isPreviewsIdle: isIdle(previews),
+    isPreviewsPending: isPending(previews),
+    isPreviewsError: isError(previews),
+    isPreviewsSuccess: isSuccess(previews),
     previews: sortedPreviews,
     previewsError: previews.error,
   };
 };
+
+/* **************************************************************************
+ *
+ *
+ *
+ *
+ *
+ *
+ * ASYNC STATE
+ *
+ *
+ *
+ *
+ *
+ * *************************************************************************/
 
 type AsyncStateArray<T> = Array<
   | {
@@ -1149,29 +1210,58 @@ type AsyncStateArray<T> = Array<
     }
 >;
 
+type AsyncIdle = {
+  id: "idle";
+  data?: undefined;
+  error?: undefined;
+};
+
+type AsyncPending = {
+  id: "pending";
+  data?: undefined;
+  error?: undefined;
+};
+
+type AsyncSuccess<T> = {
+  id: "success";
+  data: T;
+  error?: undefined;
+};
+
+type AsyncFetching<T> = {
+  id: "fetching";
+  data: T;
+  error?: undefined;
+};
+
+type AsyncError = {
+  id: "error";
+  error: unknown;
+  data?: undefined;
+};
+
 type AsyncState<T> =
-  | {
-      id: "idle";
-      data?: undefined;
-      error?: undefined;
-    }
-  | {
-      id: "pending";
-      data?: undefined;
-      error?: undefined;
-    }
-  | {
-      id: "success";
-      data: T;
-      error?: undefined;
-    }
-  | {
-      id: "fetching";
-      data: T;
-      error?: undefined;
-    }
-  | {
-      id: "error";
-      error: unknown;
-      data?: undefined;
-    };
+  | AsyncIdle
+  | AsyncPending
+  | AsyncFetching<T>
+  | AsyncSuccess<T>
+  | AsyncError;
+
+const isIdle = <T>(state: AsyncState<T>): state is AsyncIdle =>
+  state.id === "idle";
+const isPending = <T>(state: AsyncState<T>): state is AsyncPending =>
+  state.id === "pending";
+const isSuccess = <T>(state: AsyncState<T>): state is AsyncSuccess<T> =>
+  state.id === "success";
+const isFetching = <T>(state: AsyncState<T>): state is AsyncFetching<T> =>
+  state.id === "fetching";
+const isError = <T>(state: AsyncState<T>): state is AsyncError =>
+  state.id === "error";
+
+// We us nullish because we think it's important to distiguish between null,
+// undefined, "", 0, and false.
+const nullish = (v: unknown): v is null | undefined => {
+  return v === null || v === undefined;
+};
+
+type Identity<T> = (x: T) => T;

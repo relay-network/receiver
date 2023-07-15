@@ -1,24 +1,6 @@
-import { Buffer } from "buffer";
-(globalThis as unknown as { Buffer: typeof Buffer }).Buffer = Buffer;
 import * as Comlink from "comlink";
-import {
-  Xmtp,
-  uniqueConversationKey,
-  Conversation,
-  Message,
-  fromXmtpMessage,
-  ErrorCodes,
-  toXmtpConversation,
-  toXmtpClientOpts,
-  FetchClientOpts,
-} from "./lib";
-import {
-  Client as XmtpClient,
-  DecodedMessage as XmtpDecodedMessage,
-  ClientOptions as XmtpClientOptions,
-  Stream as XmtpStream,
-  Conversation as XmtpConversation,
-} from "@relaycc/xmtp-js";
+import * as Lib from "./xmtp-hooks.lib";
+import * as Sdk from "@xmtp/xmtp-js";
 
 /* **************************************************************************
  *
@@ -37,8 +19,8 @@ import {
 
 const WORKER_STATE: {
   client: {
-    client: XmtpClient;
-    env: XmtpClientOptions["env"];
+    client: Sdk.Client;
+    env: "production";
     export: string;
   } | null;
   messagesStream: MessageStream | null;
@@ -70,50 +52,61 @@ const test = async (fn: () => null) => {
   return fn();
 };
 
-const startClient: Xmtp["startClient"] = async (wallet, opts) => {
+const startClient: Lib.Xmtp["startClient"] = async (wallet, opts) => {
   if (WORKER_STATE.client !== null) {
-    throw new Error(ErrorCodes.CLIENT_ALREADY_EXISTS);
+    throw new Error(Lib.ErrorCodes.CLIENT_ALREADY_EXISTS);
   } else {
-    const finalOpts = toXmtpClientOpts({ opts });
+    const finalOpts = Lib.zClientOptions
+      .transform((val) => {
+        return {
+          ...val,
+          privateKeyOverride: (() => {
+            if (val.privateKeyOverride === undefined) {
+              return undefined;
+            } else {
+              return Buffer.from(val.privateKeyOverride, "base64");
+            }
+          })(),
+        };
+      })
+      .parse(opts);
+
     const keys = await (async () => {
       if (wallet === null) {
         if (!(finalOpts.privateKeyOverride instanceof Uint8Array)) {
-          throw new Error(ErrorCodes.BAD_ARGUMENTS);
+          throw new Error(Lib.ErrorCodes.BAD_ARGUMENTS);
         } else {
           return finalOpts.privateKeyOverride;
         }
       } else {
-        return await XmtpClient.getKeys(wallet, finalOpts);
+        return await Sdk.Client.getKeys(wallet, finalOpts);
       }
     })();
-    const xmtpClient = await XmtpClient.create(null, {
+
+    const xmtpClient = await Sdk.Client.create(null, {
       ...finalOpts,
       privateKeyOverride: keys,
     });
     WORKER_STATE.client = {
       client: xmtpClient,
-      env: finalOpts.env,
+      env: "production",
       export: Buffer.from(keys).toString("base64"),
     };
     return {
       address: xmtpClient.address,
-      env: finalOpts.env,
+      env: "production",
       export: Buffer.from(keys).toString("base64"),
     };
   }
 };
 
-const stopClient: Xmtp["stopClient"] = async () => {
+const stopClient: Lib.Xmtp["stopClient"] = async () => {
   getClientOrThrow();
   WORKER_STATE.client = null;
   return true;
 };
 
-const fetchClient: Xmtp["fetchClient"] = async ({
-  opts,
-}: {
-  opts?: Partial<FetchClientOpts>;
-}) => {
+const fetchClient: Lib.Xmtp["fetchClient"] = async ({ opts }) => {
   return {
     address: getClientOrThrow().address,
     env: getEnvOrThrow(),
@@ -127,86 +120,106 @@ const fetchClient: Xmtp["fetchClient"] = async ({
   };
 };
 
-const fetchMessages: Xmtp["fetchMessages"] = async ({ conversation, opts }) => {
+const fetchMessages: Lib.Xmtp["fetchMessages"] = async ({
+  conversation,
+  opts,
+}) => {
   const client = getClientOrThrow();
-  const convo = await toXmtpConversation({ client, conversation });
-  const messages: XmtpDecodedMessage[] = await convo.messages(opts);
-  return messages.map((message) => fromXmtpMessage({ message }));
+  const convo = await client.conversations.newConversation(
+    conversation.peerAddress,
+    conversation.context
+  );
+  const messages = await convo.messages({
+    ...opts,
+    direction: (() => {
+      if (opts?.direction === "ascending") {
+        return Sdk.SortDirection.SORT_DIRECTION_ASCENDING;
+      } else {
+        return Sdk.SortDirection.SORT_DIRECTION_DESCENDING;
+      }
+    })(),
+  });
+  return messages.map((message) => Lib.zMessage.parse(message));
 };
 
-const fetchConversations: Xmtp["fetchConversations"] = async () => {
+const fetchConversations: Lib.Xmtp["fetchConversations"] = async () => {
   const client = getClientOrThrow();
   const conversations = await client.conversations.list();
-  return conversations.map((c) => c.export());
+  return conversations.map((c) => Lib.zConversation.parse(c));
 };
 
-const fetchPeerOnNetwork: Xmtp["fetchPeerOnNetwork"] = async ({
+const fetchPeerOnNetwork: Lib.Xmtp["fetchPeerOnNetwork"] = async ({
   peerAddress,
 }) => {
   const client = getClientOrThrow();
   return client.canMessage(peerAddress);
 };
 
-const sendMessage: Xmtp["sendMessage"] = async ({
+const sendMessage: Lib.Xmtp["sendMessage"] = async ({
   conversation,
   content,
-  opts,
 }) => {
   const client = getClientOrThrow();
-  const convo = await toXmtpConversation({ client, conversation });
-  const sent = await convo.send(content, opts);
-  return fromXmtpMessage({ message: sent });
+  const convo = await client.conversations.newConversation(
+    conversation.peerAddress,
+    conversation.context
+  );
+  const sent = await convo.send(content);
+  return Lib.zMessage.parse(sent);
 };
 
-const startStreamingMessages: Xmtp["startStreamingMessages"] = async ({
+const startStreamingMessages: Lib.Xmtp["startStreamingMessages"] = async ({
   conversation,
 }) => {
   const client = getClientOrThrow();
-  const key = uniqueConversationKey(conversation);
+  const key = Lib.uniqueConversationKey(conversation);
   const preexisting = WORKER_STATE.messageStreams[key];
   if (preexisting !== undefined) {
-    throw new Error(ErrorCodes.STREAM_ALREADY_EXISTS);
+    throw new Error(Lib.ErrorCodes.STREAM_ALREADY_EXISTS);
   } else {
-    const convo = await toXmtpConversation({ client, conversation });
+    const convo = await client.conversations.newConversation(
+      conversation.peerAddress,
+      conversation.context
+    );
     const stream = await convo.streamMessages();
     WORKER_STATE.messageStreams[key] = new MessageStream(stream);
     return true;
   }
 };
 
-const stopStreamingMessages: Xmtp["stopStreamingMessages"] = async ({
+const stopStreamingMessages: Lib.Xmtp["stopStreamingMessages"] = async ({
   conversation,
 }) => {
   getClientOrThrow();
-  const key = uniqueConversationKey(conversation);
+  const key = Lib.uniqueConversationKey(conversation);
   const preexisting = WORKER_STATE.messageStreams[key];
   if (preexisting === undefined) {
-    throw new Error(ErrorCodes.STREAM_NOT_FOUND);
+    throw new Error(Lib.ErrorCodes.STREAM_NOT_FOUND);
   } else {
     preexisting.stop();
   }
 };
 
-const listenToStreamingMessages: Xmtp["listenToStreamingMessages"] = async (
+const listenToStreamingMessages: Lib.Xmtp["listenToStreamingMessages"] = async (
   conversation,
   handler
 ) => {
   getClientOrThrow();
-  const key = uniqueConversationKey(conversation);
+  const key = Lib.uniqueConversationKey(conversation);
   const preexisting = WORKER_STATE.messageStreams[key];
   if (preexisting === undefined) {
-    throw new Error(ErrorCodes.STREAM_NOT_FOUND);
+    throw new Error(Lib.ErrorCodes.STREAM_NOT_FOUND);
   } else {
     return preexisting.addHandler(handler);
   }
 };
 
-const startStreamingConversations: Xmtp["startStreamingConversations"] =
+const startStreamingConversations: Lib.Xmtp["startStreamingConversations"] =
   async () => {
     const client = getClientOrThrow();
     const preexisting = WORKER_STATE.conversationsStream;
     if (preexisting !== null) {
-      throw new Error(ErrorCodes.STREAM_ALREADY_EXISTS);
+      throw new Error(Lib.ErrorCodes.STREAM_ALREADY_EXISTS);
     } else {
       const stream = await client.conversations.stream();
       WORKER_STATE.conversationsStream = new ConversationStream(stream);
@@ -214,33 +227,33 @@ const startStreamingConversations: Xmtp["startStreamingConversations"] =
     }
   };
 
-const stopStreamingConversations: Xmtp["stopStreamingConversations"] =
+const stopStreamingConversations: Lib.Xmtp["stopStreamingConversations"] =
   async () => {
     getClientOrThrow();
     const preexisting = WORKER_STATE.conversationsStream;
     if (preexisting === null) {
-      throw new Error(ErrorCodes.STREAM_NOT_FOUND);
+      throw new Error(Lib.ErrorCodes.STREAM_NOT_FOUND);
     } else {
       preexisting.stop();
     }
   };
 
-const listenToStreamingConversations: Xmtp["listenToStreamingConversations"] =
+const listenToStreamingConversations: Lib.Xmtp["listenToStreamingConversations"] =
   async (handler) => {
     getClientOrThrow();
     const preexisting = WORKER_STATE.conversationsStream;
     if (preexisting === null) {
-      throw new Error(ErrorCodes.STREAM_NOT_FOUND);
+      throw new Error(Lib.ErrorCodes.STREAM_NOT_FOUND);
     } else {
       return preexisting.addHandler(handler);
     }
   };
 
-const startStreamingAllMessages: Xmtp["startStreamingAllMessages"] =
+const startStreamingAllMessages: Lib.Xmtp["startStreamingAllMessages"] =
   async () => {
     const client = getClientOrThrow();
     if (WORKER_STATE.messagesStream !== null) {
-      throw new Error(ErrorCodes.STREAM_ALREADY_EXISTS);
+      throw new Error(Lib.ErrorCodes.STREAM_ALREADY_EXISTS);
     } else {
       const stream = await client.conversations.streamAllMessages();
       WORKER_STATE.messagesStream = new MessageStream(stream);
@@ -248,36 +261,37 @@ const startStreamingAllMessages: Xmtp["startStreamingAllMessages"] =
     }
   };
 
-const stopStreamingAllMessages: Xmtp["stopStreamingAllMessages"] = async () => {
-  const preexisting = WORKER_STATE.messagesStream;
-  if (preexisting === null) {
-    throw new Error(ErrorCodes.STREAM_NOT_FOUND);
-  } else {
-    preexisting.stop();
-  }
-};
+const stopStreamingAllMessages: Lib.Xmtp["stopStreamingAllMessages"] =
+  async () => {
+    const preexisting = WORKER_STATE.messagesStream;
+    if (preexisting === null) {
+      throw new Error(Lib.ErrorCodes.STREAM_NOT_FOUND);
+    } else {
+      preexisting.stop();
+    }
+  };
 
-const listenToStreamingAllMessages: Xmtp["listenToStreamingAllMessages"] =
+const listenToStreamingAllMessages: Lib.Xmtp["listenToStreamingAllMessages"] =
   async (handler) => {
     const preexisting = WORKER_STATE.messagesStream;
     if (preexisting === null) {
-      throw new Error(ErrorCodes.STREAM_NOT_FOUND);
+      throw new Error(Lib.ErrorCodes.STREAM_NOT_FOUND);
     } else {
       return preexisting.addHandler(handler);
     }
   };
 
-const getClientOrThrow = (): XmtpClient => {
+const getClientOrThrow = (): Sdk.Client => {
   if (WORKER_STATE.client === null) {
-    throw new Error(ErrorCodes.CLIENT_NOT_FOUND);
+    throw new Error(Lib.ErrorCodes.CLIENT_NOT_FOUND);
   } else {
     return WORKER_STATE.client.client;
   }
 };
 
-const getEnvOrThrow = (): XmtpClientOptions["env"] => {
+const getEnvOrThrow = (): "production" => {
   if (WORKER_STATE.client === null) {
-    throw new Error(ErrorCodes.CLIENT_NOT_FOUND);
+    throw new Error(Lib.ErrorCodes.CLIENT_NOT_FOUND);
   } else {
     return WORKER_STATE.client.env;
   }
@@ -285,7 +299,7 @@ const getEnvOrThrow = (): XmtpClientOptions["env"] => {
 
 const getExportOrThrow = (): string => {
   if (WORKER_STATE.client === null) {
-    throw new Error(ErrorCodes.CLIENT_NOT_FOUND);
+    throw new Error(Lib.ErrorCodes.CLIENT_NOT_FOUND);
   } else {
     return WORKER_STATE.client.export;
   }
@@ -330,7 +344,7 @@ class SerializedStream<P, S> {
   private handlers: Record<string, (s: S) => unknown> = {};
 
   public constructor(
-    private stream: XmtpStream<P> | AsyncGenerator<P, unknown, unknown>,
+    private stream: Sdk.Stream<P> | AsyncGenerator<P, unknown, unknown>,
     private serializer: (p: P) => S
   ) {
     this.start();
@@ -368,27 +382,25 @@ class SerializedStream<P, S> {
   }
 }
 
-class MessageStream extends SerializedStream<XmtpDecodedMessage, Message> {
+class MessageStream extends SerializedStream<Sdk.DecodedMessage, Lib.Message> {
   public constructor(
     stream:
-      | XmtpStream<XmtpDecodedMessage>
-      | AsyncGenerator<XmtpDecodedMessage, unknown, unknown>
+      | Sdk.Stream<Sdk.DecodedMessage>
+      | AsyncGenerator<Sdk.DecodedMessage, unknown, unknown>
   ) {
-    super(stream, (message: XmtpDecodedMessage) =>
-      fromXmtpMessage({ message })
-    );
+    super(stream, (message: Sdk.DecodedMessage) => Lib.zMessage.parse(message));
   }
 }
 
 class ConversationStream extends SerializedStream<
-  XmtpConversation,
-  Conversation
+  Sdk.Conversation,
+  Lib.Conversation
 > {
   public constructor(
     stream:
-      | XmtpStream<XmtpConversation>
-      | AsyncGenerator<XmtpConversation, unknown, unknown>
+      | Sdk.Stream<Sdk.Conversation>
+      | AsyncGenerator<Sdk.Conversation, unknown, unknown>
   ) {
-    super(stream, (c) => c.export());
+    super(stream, (c) => Lib.zConversation.parse(c));
   }
 }

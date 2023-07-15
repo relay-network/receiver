@@ -1,14 +1,75 @@
+import { z } from "zod";
 import { Signer } from "@ethersproject/abstract-signer";
-import {
-  Client as XmtpClient,
-  ClientOptions as XmtpClientOptions,
-  DecodedMessage,
-  ListMessagesOptions,
-  ConversationV1,
-  ConversationV2,
-  SortDirection,
-} from "@relaycc/xmtp-js";
-import { SendOptions } from "@xmtp/xmtp-js";
+
+/* **************************************************************************
+ *
+ *
+ *
+ *
+ *
+ *
+ * SERIALIZABLE TYPES
+ *
+ *
+ *
+ *
+ *
+ * *************************************************************************/
+
+export const zClient = z.object({
+  address: z.string(),
+  env: z.enum(["production", "dev"]),
+  export: z.string().optional(),
+});
+
+export type Client = z.infer<typeof zClient>;
+
+export const zClientOptions = z.object({
+  env: z.enum(["production", "dev"]).optional().default("production"),
+  privateKeyOverride: z.string().optional(),
+});
+
+export type ClientOptions = z.infer<typeof zClientOptions>;
+
+export const zMessage = z.object({
+  id: z.string(),
+  conversation: z.object({
+    peerAddress: z.string(),
+    context: z
+      .object({
+        conversationId: z.string(),
+        metadata: z.object({}),
+      })
+      .optional(),
+  }),
+  senderAddress: z.string(),
+  sent: z.date(),
+  content: z.unknown(),
+});
+
+export type Message = z.infer<typeof zMessage>;
+
+export const zConversation = z.object({
+  peerAddress: z.string(),
+  context: z
+    .object({
+      conversationId: z.string(),
+      metadata: z.object({}),
+    })
+    .optional(),
+});
+
+export type Conversation = z.infer<typeof zConversation>;
+
+export const zListMessagesOptions = z.object({
+  checkAddresses: z.boolean().optional(),
+  startTime: z.date().optional(),
+  endTime: z.date().optional(),
+  limit: z.number().optional(),
+  direction: z.enum(["ascending", "descending"]).optional(),
+});
+
+export type ListMessagesOptions = z.infer<typeof zListMessagesOptions>;
 
 /* **************************************************************************
  *
@@ -48,11 +109,9 @@ export type Xmtp = {
   sendMessage: ({
     conversation,
     content,
-    opts,
   }: {
     conversation: Conversation;
     content: unknown;
-    opts?: SendOptions;
   }) => Promise<Message>;
   startStreamingMessages: ({
     conversation,
@@ -98,37 +157,6 @@ export type Xmtp = {
 
 export type ClientExport = Uint8Array;
 
-export type Client = {
-  address: string;
-  env: ClientOptions["env"];
-  export?: string;
-};
-
-export type ClientOptions = {
-  env?: XmtpClientOptions["env"];
-  privateKeyOverride?: string;
-};
-
-export const toXmtpClientOpts = ({
-  opts,
-}: {
-  opts?: Partial<ClientOptions>;
-}): Partial<XmtpClientOptions> & {
-  env: XmtpClientOptions["env"];
-} => {
-  return {
-    ...opts,
-    env: opts?.env || "production",
-    privateKeyOverride: (() => {
-      if (opts?.privateKeyOverride === undefined) {
-        return undefined;
-      } else {
-        return Buffer.from(opts.privateKeyOverride, "base64");
-      }
-    })(),
-  };
-};
-
 export type FetchClientOpts = {
   includeExport?: boolean;
 };
@@ -148,65 +176,8 @@ export type FetchClientOpts = {
  *
  * *************************************************************************/
 
-type ConversationV0Export = {
-  version?: "v0";
-  peerAddress: string;
-  context?: {
-    conversationId: string;
-    metadata: { [key: string]: string };
-  };
-};
-
-type ConversationV1Export = {
-  version: "v1";
-  peerAddress: string;
-  createdAt: Date;
-};
-
-type ConversationV2Export = {
-  version: "v2";
-  topic: string;
-  keyMaterial: string;
-  createdAt: Date;
-  peerAddress: string;
-  context:
-    | {
-        conversationId: string;
-        metadata: { [key: string]: string };
-      }
-    | undefined;
-};
-
-export type Conversation =
-  | ConversationV0Export
-  | ConversationV1Export
-  | ConversationV2Export;
-
 export const uniqueConversationKey = (conversation: Conversation) => {
-  if (conversation.version === "v1") {
-    return conversation.peerAddress;
-  } else {
-    return `${conversation.peerAddress}-${conversation.context?.conversationId}`;
-  }
-};
-
-export const toXmtpConversation = async ({
-  client,
-  conversation,
-}: {
-  client: XmtpClient;
-  conversation: Conversation;
-}) => {
-  if (conversation.version === "v1") {
-    return ConversationV1.fromExport(client, conversation);
-  } else if (conversation.version === "v2") {
-    return ConversationV2.fromExport(client, conversation);
-  } else {
-    return client.conversations.newConversation(
-      conversation.peerAddress,
-      conversation.context
-    );
-  }
+  return `${conversation.peerAddress}-${conversation.context?.conversationId}`;
 };
 
 /* **************************************************************************
@@ -224,40 +195,26 @@ export const toXmtpConversation = async ({
  *
  * *************************************************************************/
 
-export interface Message {
-  id: string;
-  conversation: Conversation;
-  senderAddress: string;
-  sent: Date;
-  content: unknown;
-}
-
-export const getNextPageOptions = ({ messages }: { messages?: Message[] }) => {
+export const getNextPageOptions = ({
+  messages,
+}: {
+  messages?: Message[];
+}): {
+  limit: number;
+  direction: "descending";
+  endTime?: Date;
+} => {
   if (messages === undefined) {
-    return { limit: 25, direction: SortDirection.SORT_DIRECTION_DESCENDING };
+    return { limit: 25, direction: "descending" };
   } else if (messages.length === 0) {
-    return { limit: 25, direction: SortDirection.SORT_DIRECTION_DESCENDING };
+    return { limit: 25, direction: "descending" };
   } else {
     return {
       limit: 25,
-      direction: SortDirection.SORT_DIRECTION_DESCENDING,
+      direction: "descending",
       endTime: messages[messages.length - 1].sent,
     };
   }
-};
-
-export const fromXmtpMessage = ({
-  message,
-}: {
-  message: DecodedMessage;
-}): Message => {
-  return {
-    id: message.id,
-    conversation: message.conversation.export(),
-    senderAddress: message.senderAddress,
-    sent: message.sent,
-    content: message.content,
-  };
 };
 
 export const insertMessagesIfNew = ({
@@ -309,16 +266,12 @@ export const insertMessagesIfNew = ({
  *
  * *************************************************************************/
 
-export type Preview = Conversation & {
+export type Preview = z.infer<typeof zConversation> & {
   preview: Message;
 };
 
 export const uniquePreviewKey = (preview: Preview) => {
-  if (preview.version === "v1") {
-    return preview.peerAddress;
-  } else {
-    return `${preview.peerAddress}-${preview.context?.conversationId}`;
-  }
+  return uniqueConversationKey(preview);
 };
 
 export const insertOrUpdatePreviews = (
