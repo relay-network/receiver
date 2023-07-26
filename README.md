@@ -5,54 +5,49 @@ to your [React](https://reactjs.org/) app.
 
 ## Features
 
-- 🚀 Ergonomic hooks for working with the XMTP API.
+- 🦾 Ergonomic hooks for working with the XMTP API.
 - 🔥 Utilizes worker threads, so crypto operations don't nuke your UI.
 - 💼 Built-in multi-client support, switch between accounts seamlessly.
-- 👟 Caching, request deduplication, batching, and persistence (Coming soon!)
 - 🌀 Auto-refresh data and message streaming
 - 🦄 TypeScript native!
-- 🌳 Custom feature support: groups, pinning, ignoring, and more! (Coming soon!)
 
-...and a whole lot more to come!
+## Coming Soon
 
-## Join the Team!
-
-[Relay](https://relay.cc) is hiring! If you're interested in working
-on this project, or any of the [other Relay projects](https://github.com/orgs/relay-network/repositories), check out our [jobs
-page](https://jobs.lever.co/relay) 🎉.
+- 🚀 useRpc -- makes requests to an XMTP-powered RPC server
+- 🤝 useGroupChat -- group chat for XMTP!
+- 🤖 useBot -- think #ChatGXMTP (streaming, cancellable, etc.)
+- 🔒 useVault -- an e2ee encrypted self-custodial kv store
+- and more!
 
 ## Documentation
 
-Full documentation, including an exhaustive API reference and feature roadmap coming soon! See below
-for quickstart and basic usage.
+Full documentation, including an exhaustive API reference and examples coming
+soon!
 
 ## Installation
 
 ```bash
-npm install @relaycc/xmtp-hooks
+npm install @relay-network/xmtp-hooks
 ```
 
-## Quick Start
+## Developer Quick Start
 
-TODO A FEW EXAMPLES HERE
+```bash
+./scripts.dev.sh dev
+```
 
-Check out the [Relay XMTP client](https://github.com/relay-network/xmtp) to get started with a
+## Examples
+
+Check out the [demo](https://xmtp.relay.cc) to get started with a
 pre-built UI 🌈 on top of `xmtp-hooks`.
 
-## Coming soon
-
-- persistent caching
-- remember-me
-
-## Developer Support
+## Support
 
 The best place to get real-time support is the `#developers` channel in
 [Discord](https://discord.com/invite/DTMKf63ZSf). You'll get extra special attention and
-tons of kudos 🎉 if you also [open an issue](TODO).
+tons of kudos 🎉 if you also [open an issue](https://github.com/relay-network/xmtp-hooks/issues/new).
 
 ## Community
-
-`xmtp-hooks` in the wild:
 
 - Join us on [Discord](https://discord.com/invite/DTMKf63ZSf) 💬
 - Follow [Relay](https://twitter.com/relay_eth) on for project updates 🤝
@@ -64,11 +59,11 @@ docs](/.github/CONTRIBUTING.md) **before submitting a pull request**.
 
 ## Sponsors
 
-- [Relay](https://relay.cc)
+- [Relay](https://relay.network)
 
 ## Authors
 
-- killthebuddha.eth ([@killthebuddha\_](https://twitter.com/killthebuddha_)) – [Relay](https://relay.cc)
+- killthebuddha.eth ([@killthebuddha\_](https://twitter.com/killthebuddha_)) – [Relay](https://relay.network)
 
 ## License
 
