@@ -1,3 +1,4 @@
+import "./xmtp-hooks.polyfills";
 import * as Comlink from "comlink";
 import * as Lib from "./xmtp-hooks.lib";
 import * as Sdk from "@xmtp/xmtp-js";
@@ -56,46 +57,35 @@ const startClient: Lib.Xmtp["startClient"] = async (wallet, opts) => {
   if (WORKER_STATE.client !== null) {
     throw new Error(Lib.ErrorCodes.CLIENT_ALREADY_EXISTS);
   } else {
-    const finalOpts = Lib.zClientOptions
-      .transform((val) => {
-        return {
-          ...val,
-          privateKeyOverride: (() => {
-            if (val.privateKeyOverride === undefined) {
-              return undefined;
-            } else {
-              return Buffer.from(val.privateKeyOverride, "base64");
-            }
-          })(),
-        };
-      })
-      .parse(opts);
-
-    const keys = await (async () => {
+    const xmtpKey = opts?.privateKeyOverride;
+    const env = opts?.env ?? "production";
+    const privateKeyOverride = await (async () => {
       if (wallet === null) {
-        if (!(finalOpts.privateKeyOverride instanceof Uint8Array)) {
+        if (xmtpKey === undefined) {
           throw new Error(Lib.ErrorCodes.BAD_ARGUMENTS);
         } else {
-          return finalOpts.privateKeyOverride;
+          return Sdk.Client.getKeys(wallet, {
+            env,
+            privateKeyOverride: Buffer.from(xmtpKey, "base64"),
+          });
         }
       } else {
-        return await Sdk.Client.getKeys(wallet, finalOpts);
+        return Sdk.Client.getKeys(wallet, { env });
       }
     })();
-
     const xmtpClient = await Sdk.Client.create(null, {
-      ...finalOpts,
-      privateKeyOverride: keys,
+      env,
+      privateKeyOverride,
     });
     WORKER_STATE.client = {
       client: xmtpClient,
       env: "production",
-      export: Buffer.from(keys).toString("base64"),
+      export: Buffer.from(privateKeyOverride).toString("base64"),
     };
     return {
-      address: xmtpClient.address,
-      env: "production",
-      export: Buffer.from(keys).toString("base64"),
+      address: WORKER_STATE.client.client.address,
+      env: WORKER_STATE.client.env,
+      export: WORKER_STATE.client.export,
     };
   }
 };
@@ -124,7 +114,12 @@ const fetchMessages: Lib.Xmtp["fetchMessages"] = async ({
   conversation,
   opts,
 }) => {
+  // The XMTP SDK does not allow self-sent messages at the moment.
   const client = getClientOrThrow();
+  if (conversation.peerAddress === client.address) {
+    return [];
+  }
+
   const convo = await client.conversations.newConversation(
     conversation.peerAddress,
     conversation.context

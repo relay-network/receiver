@@ -3,8 +3,7 @@ import { create } from "zustand";
 import * as Comlink from "comlink";
 import { Signer } from "@ethersproject/abstract-signer";
 import * as Lib from "./xmtp-hooks.lib";
-// import XmtpWorker from "./xmtp-hooks.worker.js?worker&inline";
-import * as Xmtp from "./xmtp-hooks.xmtp";
+import XmtpWorker from "./xmtp-hooks.worker.js?worker&inline";
 
 /* **************************************************************************
  *
@@ -47,8 +46,7 @@ type XmtpFromStore = {
   address: string;
   env?: "local" | "production" | "dev";
   export?: string;
-  // worker: Comlink.Remote<Lib.Xmtp>;
-  worker: typeof Xmtp;
+  worker: Comlink.Remote<Lib.Xmtp>;
 };
 
 const MISSES_STORE_KEY = "RANDOM STRING HERE";
@@ -123,13 +121,14 @@ export const useXmtp = ({
       return async () => {
         try {
           setXmtp({ id: "pending" });
-          // const worker = Comlink.wrap<Lib.Xmtp>(new XmtpWorker());
-          const worker = Xmtp;
+          const worker = Comlink.wrap<Lib.Xmtp>(new XmtpWorker());
+          // const worker = Xmtp;
           const client = await worker.startClient(
             (() => {
               if (wallet === null) {
                 return null;
               } else {
+                console.log("wallet", wallet);
                 return Comlink.proxy(wallet);
               }
             })(),
