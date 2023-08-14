@@ -390,3 +390,22 @@ export type AsyncState<T> =
   | AsyncFetching<T>
   | AsyncSuccess<T>
   | AsyncError;
+
+/* **************************************************************************
+ *
+ *
+ *
+ *
+ *
+ *
+ * HELPERS
+ *
+ *
+ *
+ *
+ *
+ * *************************************************************************/
+
+export const uid = () => {
+  return `${Math.random()}${Math.random()}${Math.random()}${Math.random()}`;
+};

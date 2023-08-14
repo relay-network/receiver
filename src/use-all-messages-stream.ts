@@ -7,12 +7,12 @@ import { useRemote } from "./use-remote";
 import { Signer } from "@ethersproject/abstract-signer";
 import { zMessage } from "./lib";
 
-const useAllMessageStreamStore = create<Record<string, Lib.AsyncState<string>>>(
-  () => ({})
-);
+const useAllMessagesStreamStore = create<
+  Record<string, Lib.AsyncState<string>>
+>(() => ({}));
 
 const setIdle = ({ address }: { address: string }) => {
-  useAllMessageStreamStore.setState((state) => {
+  useAllMessagesStreamStore.setState((state) => {
     return {
       ...state,
       [address]: { id: "idle" },
@@ -21,7 +21,7 @@ const setIdle = ({ address }: { address: string }) => {
 };
 
 const setPending = ({ address }: { address: string }) => {
-  useAllMessageStreamStore.setState((state) => {
+  useAllMessagesStreamStore.setState((state) => {
     return {
       ...state,
       [address]: { id: "pending" },
@@ -30,7 +30,7 @@ const setPending = ({ address }: { address: string }) => {
 };
 
 const setSuccess = ({ address }: { address: string }) => {
-  useAllMessageStreamStore.setState((state) => {
+  useAllMessagesStreamStore.setState((state) => {
     return {
       ...state,
       [address]: { id: "success", data: address },
@@ -39,7 +39,7 @@ const setSuccess = ({ address }: { address: string }) => {
 };
 
 const setError = ({ address, error }: { address: string; error: unknown }) => {
-  useAllMessageStreamStore.setState((state) => {
+  useAllMessagesStreamStore.setState((state) => {
     return {
       ...state,
       [address]: { id: "error", error },
@@ -47,14 +47,12 @@ const setError = ({ address, error }: { address: string; error: unknown }) => {
   });
 };
 
-type UseAllMessageStreamProps = {
+export const useAllMessagesStream = (props: {
   address?: string | null;
   wallet?: Signer;
-};
-
-export const useAllMessageStream = (props: UseAllMessageStreamProps) => {
+}) => {
   const remote = useRemote({ address: props.address });
-  const store = useAllMessageStreamStore();
+  const store = useAllMessagesStreamStore();
 
   const stream: Lib.AsyncState<string> = useMemo(() => {
     if (typeof props.address !== "string") {
@@ -140,7 +138,6 @@ export const useAllMessageStream = (props: UseAllMessageStreamProps) => {
   }, [remote === null, typeof props.address]);
 
   return {
-    stream,
     start,
     stop,
     listen,
