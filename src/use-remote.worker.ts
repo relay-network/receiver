@@ -1,6 +1,6 @@
-import "./xmtp-hooks.polyfills";
+import "./polyfills";
 import * as Comlink from "comlink";
-import * as Lib from "./xmtp-hooks.lib";
+import * as Lib from "./lib";
 import * as Sdk from "@xmtp/xmtp-js";
 
 /* **************************************************************************
@@ -49,13 +49,13 @@ const WORKER_STATE: {
  *
  * *************************************************************************/
 
-const test = async (fn: () => null) => {
-  return fn();
-};
-
 const startClient: Lib.Xmtp["startClient"] = async (wallet, opts) => {
   if (WORKER_STATE.client !== null) {
-    throw new Error(Lib.ErrorCodes.CLIENT_ALREADY_EXISTS);
+    return {
+      address: WORKER_STATE.client.client.address,
+      env: WORKER_STATE.client.env,
+      export: WORKER_STATE.client.export,
+    };
   } else {
     const xmtpKey = opts?.privateKeyOverride;
     const env = opts?.env ?? "production";
@@ -317,7 +317,6 @@ Comlink.expose({
   startStreamingAllMessages,
   stopStreamingAllMessages,
   listenToStreamingAllMessages,
-  test,
 });
 
 /* **************************************************************************
@@ -327,7 +326,7 @@ Comlink.expose({
  *
  *
  *
- * Helpers
+ * SERIALIZED STREAM
  *
  *
  *

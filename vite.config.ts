@@ -12,6 +12,7 @@ export default defineConfig(async () => {
       rollupOptions: {
         external: ["react", "react-dom"],
       },
+      outDir: "build",
     },
     plugins: [react(), dts({ outputDir: "dist/types" })],
   };

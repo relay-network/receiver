@@ -338,3 +338,55 @@ export const ErrorCodes = {
   SIGNING_FAILED: "SIGNING_FAILED",
   BAD_ARGUMENTS: "BAD_ARGUMENTS",
 } as const;
+
+/* **************************************************************************
+ *
+ *
+ *
+ *
+ *
+ *
+ * AsyncState
+ *
+ *
+ *
+ *
+ *
+ * *************************************************************************/
+
+type AsyncIdle = {
+  id: "idle";
+  data?: undefined;
+  error?: undefined;
+};
+
+type AsyncPending = {
+  id: "pending";
+  data?: undefined;
+  error?: undefined;
+};
+
+type AsyncSuccess<T> = {
+  id: "success";
+  data: T;
+  error?: undefined;
+};
+
+type AsyncFetching<T> = {
+  id: "fetching";
+  data: T;
+  error?: undefined;
+};
+
+type AsyncError = {
+  id: "error";
+  error: unknown;
+  data?: undefined;
+};
+
+export type AsyncState<T> =
+  | AsyncIdle
+  | AsyncPending
+  | AsyncFetching<T>
+  | AsyncSuccess<T>
+  | AsyncError;
