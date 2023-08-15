@@ -1,6 +1,6 @@
 # Receiver is React hooks for XMTP
 
-Relay Receiver is the fastest way to add [xmtp-js](https://github.com/xmtp/xmtp-js)
+It's the fastest way to add [xmtp-js](https://github.com/xmtp/xmtp-js)
 to your [React](https://reactjs.org/) app.
 
 ## Features
