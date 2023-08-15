@@ -1,18 +1,19 @@
-# React Hooks for XMTP
+# Receiver is React hooks for XMTP
 
-The fastest way to add [xmtp-js](https://github.com/xmtp/xmtp-js)
+Relay Receiver is the fastest way to add [xmtp-js](https://github.com/xmtp/xmtp-js)
 to your [React](https://reactjs.org/) app.
 
 ## Features
 
 - 🦾 Ergonomic hooks for working with the XMTP API.
-- 🔥 Utilizes worker threads, so crypto operations don't nuke your UI.
+- 🔥 Utilizes web workers, so crypto operations don't nuke your UI.
 - 💼 Built-in multi-client support, switch between accounts seamlessly.
 - 🌀 Auto-refresh data and message streaming
 - 🦄 TypeScript native!
 
 ## Coming Soon
 
+- 🙈 component library -- headless, fully customizable UI components for painless integration
 - 🚀 useRpc -- makes requests to an XMTP-powered RPC server
 - 🤝 useGroupChat -- group chat for XMTP!
 - 🤖 useBot -- think #ChatGXMTP (streaming, cancellable, etc.)
@@ -21,31 +22,33 @@ to your [React](https://reactjs.org/) app.
 
 ## Documentation
 
-Full documentation, including an exhaustive API reference and examples coming
-soon!
+Check out the [live walkthrough](https://receiver.relay.network)!
+
+Additional documentation, complete with a full API reference, coming soon!
 
 ## Installation
 
 ```bash
-npm install @relay-network/xmtp-hooks
+npm install @relay-network/receiver
 ```
 
 ## Developer Quick Start
 
 ```bash
-./scripts.dev.sh dev
+./scripts.dev.sh
 ```
 
 ## Examples
 
-Check out the [demo](https://xmtp.relay.cc) to get started with a
-pre-built UI 🌈 on top of `xmtp-hooks`.
+We've "inlined" working use cases along with their corresponding hooks (e.g., see
+[the useClient example](./src/use-client.example.tsx)). To see them in action,
+check out the [demo](https://receiver.relay.network).
 
 ## Support
 
 The best place to get real-time support is the `#developers` channel in
 [Discord](https://discord.com/invite/DTMKf63ZSf). You'll get extra special attention and
-tons of kudos 🎉 if you also [open an issue](https://github.com/relay-network/xmtp-hooks/issues/new).
+tons of kudos 🎉 if you also [open an issue](https://github.com/relay-network/receiver/issues/new).
 
 ## Community
 
