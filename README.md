@@ -50,7 +50,7 @@ tons of kudos 🎉 if you also [open an issue](https://github.com/relay-network/
 ## Community
 
 - Join us on [Discord](https://discord.com/invite/DTMKf63ZSf) 💬
-- Follow [Relay](https://twitter.com/relay_eth) on for project updates 🤝
+- Follow [Relay](https://twitter.com/relay_eth) on Twitter for project updates 🤝
 
 ## Contributing
 
