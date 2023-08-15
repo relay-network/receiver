@@ -1,6 +1,6 @@
 # React Hooks for XMTP
 
-`xmtp-hooks` The fastest way to add [xmtp-js](https://github.com/xmtp/xmtp-js)
+The fastest way to add [xmtp-js](https://github.com/xmtp/xmtp-js)
 to your [React](https://reactjs.org/) app.
 
 ## Features
