@@ -12,14 +12,10 @@ const setRemote = ({ address }: { address: string }) => {
   }
 };
 
-type UseActionsProps = {
-  address?: string | null;
-};
-
-export const useRemote = (props: UseActionsProps) => {
-  if (props.address === null || props.address === undefined) {
+export const useRemote = ({ address }: { address?: string | null }) => {
+  if (address === null || address === undefined) {
     return null;
   } else {
-    return setRemote({ address: props.address });
+    return setRemote({ address: address });
   }
 };

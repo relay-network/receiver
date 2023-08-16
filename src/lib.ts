@@ -354,6 +354,12 @@ export const ErrorCodes = {
  *
  * *************************************************************************/
 
+type AsyncInactive = {
+  id: "inactive";
+  data?: undefined;
+  error?: undefined;
+};
+
 type AsyncIdle = {
   id: "idle";
   data?: undefined;
@@ -385,6 +391,7 @@ type AsyncError = {
 };
 
 export type AsyncState<T> =
+  | AsyncInactive
   | AsyncIdle
   | AsyncPending
   | AsyncFetching<T>
@@ -408,4 +415,11 @@ export type AsyncState<T> =
 
 export const uid = () => {
   return `${Math.random()}${Math.random()}${Math.random()}${Math.random()}`;
+};
+
+export const cn = (names: Record<string, boolean>) => {
+  return Object.entries(names)
+    .filter(([, condition]) => condition)
+    .map(([name]) => name)
+    .join(" ");
 };

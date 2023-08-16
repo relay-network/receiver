@@ -1,16 +1,18 @@
+import { z } from "zod";
 import { create } from "zustand";
 import { useMemo } from "react";
 import * as Comlink from "comlink";
 import * as Lib from "./lib";
 import { useRemote } from "./use-remote";
 import { Signer } from "@ethersproject/abstract-signer";
+import { zConversation } from "./lib";
 
-const useClientStore = create<Record<string, Lib.AsyncState<string>>>(
-  () => ({})
-);
+const useStreamConversationsStore = create<
+  Record<string, Lib.AsyncState<string>>
+>(() => ({}));
 
 const setIdle = ({ address }: { address: string }) => {
-  useClientStore.setState((state) => {
+  useStreamConversationsStore.setState((state) => {
     return {
       ...state,
       [address]: { id: "idle" },
@@ -19,7 +21,7 @@ const setIdle = ({ address }: { address: string }) => {
 };
 
 const setPending = ({ address }: { address: string }) => {
-  useClientStore.setState((state) => {
+  useStreamConversationsStore.setState((state) => {
     return {
       ...state,
       [address]: { id: "pending" },
@@ -28,7 +30,7 @@ const setPending = ({ address }: { address: string }) => {
 };
 
 const setSuccess = ({ address }: { address: string }) => {
-  useClientStore.setState((state) => {
+  useStreamConversationsStore.setState((state) => {
     return {
       ...state,
       [address]: { id: "success", data: address },
@@ -37,7 +39,7 @@ const setSuccess = ({ address }: { address: string }) => {
 };
 
 const setError = ({ address, error }: { address: string; error: unknown }) => {
-  useClientStore.setState((state) => {
+  useStreamConversationsStore.setState((state) => {
     return {
       ...state,
       [address]: { id: "error", error },
@@ -45,14 +47,14 @@ const setError = ({ address, error }: { address: string; error: unknown }) => {
   });
 };
 
-export const useClient = (props: {
+export const useStreamConversations = (props: {
   address?: string | null;
   wallet?: Signer;
 }) => {
   const remote = useRemote({ address: props.address });
-  const store = useClientStore();
+  const store = useStreamConversationsStore();
 
-  const client: Lib.AsyncState<string> = useMemo(() => {
+  const stream: Lib.AsyncState<string> = useMemo(() => {
     if (typeof props.address !== "string") {
       return { id: "idle" };
     } else if (store[props.address]) {
@@ -62,12 +64,40 @@ export const useClient = (props: {
     }
   }, [store, props.address]);
 
+  const listen = useMemo(() => {
+    if (remote === null) {
+      return null;
+    }
+
+    if (stream.id !== "success") {
+      return null;
+    }
+
+    const address = props.address;
+    if (typeof address !== "string") {
+      return null;
+    }
+
+    const wallet = props.wallet;
+    if (typeof wallet !== "object") {
+      return null;
+    }
+
+    return async (handler: (m: z.infer<typeof zConversation>) => unknown) => {
+      try {
+        remote.listenToStreamingConversations(Comlink.proxy(handler));
+      } catch (error) {
+        setError({ address, error });
+      }
+    };
+  }, [stream.id === "success", remote === null, typeof props.address]);
+
   const start = useMemo(() => {
     if (remote === null) {
       return null;
     }
 
-    if (client.id !== "idle") {
+    if (stream.id !== "idle") {
       return null;
     }
 
@@ -84,13 +114,13 @@ export const useClient = (props: {
     return async () => {
       try {
         setPending({ address });
-        await remote.startClient(Comlink.proxy(props.wallet));
+        await remote.startStreamingConversations();
         setSuccess({ address });
       } catch (error) {
         setError({ address, error });
       }
     };
-  }, [client.id === "idle", remote === null, typeof props.address]);
+  }, [stream.id === "idle", remote === null, typeof props.address]);
 
   const stop = useMemo(() => {
     if (remote === null) {
@@ -108,13 +138,13 @@ export const useClient = (props: {
   }, [remote === null, typeof props.address]);
 
   return {
-    client,
     start,
     stop,
-    isIdle: client.id === "idle",
-    isPending: client.id === "pending",
-    isSuccess: client.id === "success",
-    isError: client.id === "error",
-    error: client.error,
+    listen,
+    isIdle: stream.id === "idle",
+    isPending: stream.id === "pending",
+    isSuccess: stream.id === "success",
+    isError: stream.id === "error",
+    error: stream.error,
   };
 };
