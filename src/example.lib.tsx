@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { cn } from "./lib";
+import { useAccount, useWalletClient } from "wagmi";
 
 export const Section = ({ children }: { children: ReactNode }) => {
   return <div className="flex flex-col mb-8">{children}</div>;
@@ -111,4 +112,33 @@ export const PrimaryButton = ({
       })()}
     </button>
   );
+};
+
+export const useSigner = () => {
+  const { address } = useAccount();
+  const { data: walletClient } = useWalletClient();
+
+  /* This feels really stupid, there has to be an easier way. Ultimately the
+   * problem is that we're using Wagmi -> Viem whereas XMTP expects an Ethers ->
+   * Signer. */
+  return (() => {
+    if (
+      walletClient === undefined ||
+      walletClient === null ||
+      typeof address !== "string"
+    ) {
+      return undefined;
+    } else {
+      return {
+        address,
+        getAddress: async () => address,
+        signMessage: async (message: string) => {
+          return walletClient.signMessage({
+            account: address,
+            message,
+          });
+        },
+      };
+    }
+  })();
 };

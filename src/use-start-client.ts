@@ -2,7 +2,6 @@ import { create } from "zustand";
 import * as Comlink from "comlink";
 import * as Lib from "./lib";
 import { useRemote } from "./use-remote";
-import { Signer } from "@ethersproject/abstract-signer";
 
 const useClientStore = create<Record<string, Lib.AsyncState<string>>>(
   () => ({})
@@ -44,19 +43,12 @@ const setError = ({ address, error }: { address: string; error: unknown }) => {
   });
 };
 
-export const useStartClient = ({
-  address,
-  wallet,
-}: {
-  address?: string | null;
-  wallet?: Signer;
-}) => {
-  const remote = useRemote({ address });
+export const useStartClient = ({ wallet }: { wallet?: Lib.Signer }) => {
+  const remote = useRemote({ address: wallet?.address });
   const store = useClientStore();
 
   const isRemoteReady = remote !== null;
-  const isWalletReady =
-    typeof wallet === "object" && typeof address === "string";
+  const isWalletReady = typeof wallet === "object";
 
   if (!isRemoteReady || !isWalletReady) {
     return {
@@ -70,17 +62,17 @@ export const useStartClient = ({
     };
   }
 
-  const client = store[address];
+  const client = store[wallet.address];
 
   if (client === undefined || client.id === "idle") {
     return {
       start: async () => {
         try {
-          setPending({ address });
+          setPending({ address: wallet.address });
           await remote.startClient(Comlink.proxy(wallet));
-          setSuccess({ address });
+          setSuccess({ address: wallet.address });
         } catch (error) {
-          setError({ address, error });
+          setError({ address: wallet.address, error });
         }
       },
       stop: null,
@@ -94,7 +86,7 @@ export const useStartClient = ({
     return {
       start: null,
       stop: () => {
-        setIdle({ address });
+        setIdle({ address: wallet.address });
       },
       isInactive: false,
       isIdle: false,

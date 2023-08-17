@@ -1,56 +1,42 @@
-import { useEffect, useState } from "react";
-import { Wallet } from "@ethersproject/wallet";
 import { useStreamMessages } from "./use-stream-messages";
-import { useStartClient } from "./use-start-client";
-import * as Views from "./example.views";
-import { Client } from "@xmtp/xmtp-js";
+import * as Ex from "./example.lib";
 
 export const UseStreamMessages = () => {
-  const [wallet, setWallet] = useState<Wallet | undefined>();
-  const client = useStartClient({ address: wallet?.address, wallet });
-  const stream = useStreamMessages({ address: wallet?.address, wallet });
-
-  useEffect(() => {
-    if (client.start !== null) {
-      console.log("Starting stream");
-      client.start();
-    }
-  }, [client.start === null]);
+  const wallet = Ex.useSigner();
+  const stream = useStreamMessages({ wallet });
 
   return (
-    <Views.Section>
-      <Views.SectionHeader>useStreamMessages</Views.SectionHeader>
-      <Views.SectionDescription>
-        Before you can do anything with XMTP, you need to have a reference to
-        the user's wallet and you need start up the XMTP client. If you haven't
-        already, check out the{" "}
-        <Views.SectionLink href="#useStartClient">
-          walkthrough
-        </Views.SectionLink>
-        . After you've done that, you can continue started by clicking the
-        button below.
-      </Views.SectionDescription>
-      <Views.PrimaryButton
-        inactiveText="Waiting for Worker"
-        idleText="Start client"
-        pendingText="Starting client..."
-        errorText="Error starting client"
-        successText="Client started"
-        onClickIdle={() => setWallet(Wallet.createRandom())}
-        status={(() => {
-          if (client.isInactive) return "idle";
-          if (client.isError) return "error";
-          if (client.isSuccess) return "success";
-          if (client.isPending) return "pending";
-          if (client.isIdle) return "idle";
-          throw new Error("Unhandled client state");
-        })()}
-      />
-      <Views.SectionDescription>
-        Once you've started the XMTP client, you can start and stop the message
-        stream. Once a stream is started, you can listen to it for messages.
-      </Views.SectionDescription>
-      <Views.PrimaryButton
+    <Ex.Section>
+      <div id="useStreamMessages" className="flex items-center">
+        <Ex.SectionHeader className="mr-auto">
+          useStreamMessages
+        </Ex.SectionHeader>
+        <Ex.SectionLink
+          className="mr-4"
+          href="https://github.com/relay-network/receiver/src/use-stream-messages-example.tsx"
+        >
+          example source
+        </Ex.SectionLink>
+        <Ex.SectionLink href="https://github.com/relay-network/receiver/src/use-stream-messages.ts">
+          hook source
+        </Ex.SectionLink>
+      </div>
+      <Ex.SectionDescription>
+        Now that you've created a wallet and started the XMTP client, you can
+        start streaming messages (If you haven't already, please step through
+        the useStartClient
+        <Ex.SectionLink href="#useStartClient">
+          {" "}
+          walkthrough{" "}
+        </Ex.SectionLink>{" "}
+        above, then continue).
+      </Ex.SectionDescription>
+      <Ex.SectionDescription>
+        With useStreamMessages you can start, stop, and listen to the XMTP
+        client's global message stream. Every message sent to the client's XMTP
+        identity will pass through this stream.
+      </Ex.SectionDescription>
+      <Ex.PrimaryButton
         inactiveText="Inactive"
         idleText="Start Stream"
         pendingText="Starting..."
@@ -72,12 +58,12 @@ export const UseStreamMessages = () => {
           throw new Error("Unhandled stream state");
         })()}
       />
-      <Views.SectionDescription>
+      <Ex.SectionDescription>
         Now that you've started a stream, you can listen to it for messages. The
         following button will add a listener to the stream. When a message is
-        received, it will be logged to the console.
-      </Views.SectionDescription>
-      <Views.PrimaryButton
+        received, it will be logged to the developer console.
+      </Ex.SectionDescription>
+      <Ex.PrimaryButton
         inactiveText="Can't listen to stream"
         idleText="Listen to Stream"
         pendingText="Starting listener..."
@@ -104,41 +90,14 @@ export const UseStreamMessages = () => {
           throw new Error("Unhandled stream state");
         })()}
       />
-      <Views.SectionDescription>
-        Click the next button to send a message to the XMTP client we started.
-        Or, for a more realistic example, you can send a message from another
-        device. head over to{" "}
-        <a href="https://xmpt.chat">and send a message to {wallet?.address}</a>.
-        If you open up the developer console, you should see the message logged.
-      </Views.SectionDescription>
-      <Views.PrimaryButton
-        inactiveText="Can't send message"
-        idleText="Send Message"
-        pendingText="Sending..."
-        successText="Sent"
-        errorText="Error sending message"
-        onClickIdle={async () => {
-          if (typeof wallet !== "object") {
-            // do nothing;
-          } else {
-            const client = await Client.create(Wallet.createRandom(), {
-              env: "production",
-            });
-            const convo = await client.conversations.newConversation(
-              wallet.address
-            );
-            await convo.send("Hello, world!");
-          }
-        }}
-        status={(() => {
-          if (stream.isInactive) return "inactive";
-          if (stream.isError) return "error";
-          if (stream.isSuccess) return "idle";
-          if (stream.isPending) return "inactive";
-          if (stream.isIdle) return "inactive";
-          throw new Error("Unhandled stream state");
-        })()}
-      />
-    </Views.Section>
+      <Ex.SectionDescription>
+        You've started the stream and added a listener but, unless you happen to
+        be 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045, you probably won't see
+        any messages. In the next section you'll create another client and start
+        sending messages. For a more "realistic" experience, you could head to{" "}
+        <Ex.SectionLink href="https://xmtp.chat">xmtp.chat</Ex.SectionLink>,
+        login with a different address, and send yourself some messages.
+      </Ex.SectionDescription>
+    </Ex.Section>
   );
 };

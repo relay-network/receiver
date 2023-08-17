@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { Signer } from "@ethersproject/abstract-signer";
+
+export type Signer = {
+  address: string;
+  getAddress: () => Promise<string>;
+  signMessage: (message: string) => Promise<string>;
+};
 
 /* **************************************************************************
  *

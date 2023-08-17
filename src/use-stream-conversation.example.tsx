@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Wallet } from "@ethersproject/wallet";
 import { useStreamConversation } from "./use-stream-conversation";
-import * as Views from "./example.views";
+import * as Views from "./example.lib";
 
 export const UseMessagesStream = ({ wallet }: { wallet: Wallet }) => {
   const [peerAddress, setPeerAddress] = useState<string | null>(null);

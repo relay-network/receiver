@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Wallet } from "@ethersproject/wallet";
 import { useFetchConversations } from "./use-fetch-conversations";
-import * as Views from "./example.views";
+import * as Views from "./example.lib";
 
 export const UseFetchConversations = ({ wallet }: { wallet: Wallet }) => {
   const fetchConversations = useFetchConversations({

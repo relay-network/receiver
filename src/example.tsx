@@ -11,8 +11,30 @@ import { UseFetchPeerOnNetwork } from "./use-fetch-peer-on-network.example";
 import { UseStreamConversations } from "./use-stream-conversations.example";
 import { UseFetchMessages } from "./use-fetch-messages.example";
 import { UseMessagesStream } from "./use-stream-conversation.example";
-import * as Views from "./example.views";
+import * as Views from "./example.lib";
 import { cn } from "./lib";
+import "@rainbow-me/rainbowkit/styles.css";
+import { RainbowKitProvider, getDefaultWallets } from "@rainbow-me/rainbowkit";
+import { configureChains, createConfig, WagmiConfig } from "wagmi";
+import { mainnet, polygon, optimism, arbitrum, zora } from "wagmi/chains";
+import { publicProvider } from "wagmi/providers/public";
+import { WalletConnectConnector } from "wagmi/dist/connectors/walletConnect";
+
+const { chains, publicClient } = configureChains(
+  [mainnet, polygon, optimism, arbitrum, zora],
+  [publicProvider()]
+);
+
+const { connectors } = getDefaultWallets({
+  appName: "Relay Reciever Tutorial",
+  projectId: "18f0509314edaa4e93ceb0a4e9d534dd",
+  chains,
+});
+
+const wagmiConfig = createConfig({
+  connectors,
+  publicClient,
+});
 
 /* ****************************************************************************
  *
@@ -22,10 +44,14 @@ import { cn } from "./lib";
 
 const App = () => {
   return (
-    <main className="h-screen w-screen flex flex-row p-8">
-      <FeatureList />
-      <Examples wallet={WALLETS[0]} />
-    </main>
+    <WagmiConfig config={wagmiConfig}>
+      <RainbowKitProvider chains={chains}>
+        <main className="h-screen w-screen flex flex-row p-8">
+          <FeatureList />
+          <Examples wallet={WALLETS[0]} />
+        </main>
+      </RainbowKitProvider>
+    </WagmiConfig>
   );
 };
 
@@ -116,15 +142,18 @@ const Examples = ({ wallet }: { wallet: Wallet }) => {
     <div className="flex flex-col w-[65ch]">
       <Views.SectionHeader>Relay Receiver Live Tutorial</Views.SectionHeader>
       <Views.SectionDescription>
-        This app is a live walkthrough of the XMTP hooks API provided by Relay
-        Receiver. For each hook, you will find a section dedicated to
-        step-by-step usage instructions for that specific hook. At the top of
-        each section you'll find a link to the source code for both the hook and
-        the example.
+        The following is a live walkthrough of the low-level hooks API provided
+        by Relay Receiver. We use these hooks as the building blocks for common
+        higher-level feature hooks like{" "}
+        <Views.SectionLink href="#use-conversation">
+          useConversation
+        </Views.SectionLink>
+        . These hooks are provided as a fallback, but we recommend using the
+        higher-level hooks whenever possible.
       </Views.SectionDescription>
       <UseStartClient />
-      <UseStreamMessages wallet={wallet} />
-      <UseSendMessage wallet={wallet} />
+      <UseStreamMessages />
+      <UseSendMessage />
       <UseFetchConversations wallet={wallet} />
       <UseFetchPeerOnNetwork wallet={wallet} />
       <UseStreamConversations wallet={wallet} />

@@ -1,11 +1,9 @@
 import { z } from "zod";
 import { create } from "zustand";
-import { useMemo } from "react";
 import * as Comlink from "comlink";
 import * as Lib from "./lib";
 import { useRemote } from "./use-remote";
 import { useStartClient } from "./use-start-client.js";
-import { Signer } from "@ethersproject/abstract-signer";
 import { zMessage } from "./lib";
 
 const useStreamMessagesStore = create<Record<string, Lib.AsyncState<string>>>(
@@ -48,20 +46,13 @@ const setError = ({ address, error }: { address: string; error: unknown }) => {
   });
 };
 
-export const useStreamMessages = ({
-  address,
-  wallet,
-}: {
-  address?: string | null;
-  wallet?: Signer;
-}) => {
-  const remote = useRemote({ address: address });
+export const useStreamMessages = ({ wallet }: { wallet?: Lib.Signer }) => {
+  const remote = useRemote({ address: wallet?.address });
   const store = useStreamMessagesStore();
-  const client = useStartClient({ address: address, wallet: wallet });
+  const client = useStartClient({ wallet });
 
   const isRemoteReady = remote !== null;
-  const isWalletReady =
-    typeof wallet === "object" && typeof address === "string";
+  const isWalletReady = typeof wallet === "object";
   const isClientReady = client.isSuccess;
 
   if (!isRemoteReady || !isWalletReady || !isClientReady) {
@@ -77,17 +68,17 @@ export const useStreamMessages = ({
     };
   }
 
-  const stream = store[address];
+  const stream = store[wallet.address];
 
   if (stream === undefined || stream.id === "idle") {
     return {
       start: async () => {
         try {
-          setPending({ address });
+          setPending({ address: wallet.address });
           await remote.startStreamingAllMessages();
-          setSuccess({ address });
+          setSuccess({ address: wallet.address });
         } catch (error) {
-          setError({ address, error });
+          setError({ address: wallet.address, error });
         }
       },
       stop: null,
@@ -114,17 +105,17 @@ export const useStreamMessages = ({
       start: null,
       stop: async () => {
         try {
-          setIdle({ address });
+          setIdle({ address: wallet.address });
           await remote.stopStreamingAllMessages();
         } catch (error) {
-          setError({ address, error });
+          setError({ address: wallet.address, error });
         }
       },
       listen: async (handler: (m: z.infer<typeof zMessage>) => unknown) => {
         try {
           remote.listenToStreamingAllMessages(Comlink.proxy(handler));
         } catch (error) {
-          setError({ address, error });
+          setError({ address: wallet.address, error });
         }
       },
       isInactive: false,

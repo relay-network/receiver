@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Wallet } from "@ethersproject/wallet";
 import { useFetchPeerOnNetwork } from "./use-fetch-peer-on-network";
-import * as Views from "./example.views";
+import * as Views from "./example.lib";
 
 export const UseFetchPeerOnNetwork = ({ wallet }: { wallet: Wallet }) => {
   const fetchPeerOnNetwork = useFetchPeerOnNetwork({

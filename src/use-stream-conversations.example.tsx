@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Wallet } from "@ethersproject/wallet";
 import { useStreamConversations } from "./use-stream-conversations";
-import * as Views from "./example.views";
+import * as Views from "./example.lib";
 
 export const UseStreamConversations = ({ wallet }: { wallet: Wallet }) => {
   const stream = useStreamConversations({ address: wallet.address, wallet });

@@ -1,55 +1,59 @@
 import { z } from "zod";
-import { useState } from "react";
-import { Signer } from "@ethersproject/abstract-signer";
+import { useEffect, useState } from "react";
 import { useRemote } from "./use-remote";
-import { useMemo } from "react";
+import { useStartClient } from "./use-start-client";
 import * as Lib from "./lib";
 
-export const useSendMessage = (props: {
-  address?: string | null;
-  wallet?: Signer;
-}) => {
-  const remote = useRemote({ address: props.address });
+export const useSendMessage = ({ wallet }: { wallet?: Lib.Signer }) => {
+  const remote = useRemote({ address: wallet?.address });
+  const client = useStartClient({ wallet });
   const [state, setState] = useState<
     Lib.AsyncState<z.infer<typeof Lib.zMessage>>
-  >({ id: "idle" });
-
-  const sendMessage = useMemo(() => {
-    if (remote === null) {
-      return null;
-    }
-
-    if (typeof props.address !== "string") {
-      return null;
-    }
-
-    if (typeof props.wallet !== "object") {
-      return null;
-    }
-
-    return async ({
-      conversation,
-      content,
-    }: {
-      conversation: z.infer<typeof Lib.zConversation>;
-      content: string;
-    }) => {
-      const id = Lib.uid();
-
-      setState({ id: "pending" });
-
-      try {
-        const sent = await remote.sendMessage({ conversation, content });
-        setState({ id: "success", data: sent });
-        return sent;
-      } catch (error) {
-        setState({ id: "error", error });
+  >(
+    (() => {
+      if (client.isSuccess) {
+        return { id: "idle" };
+      } else {
+        return { id: "inactive" };
       }
-    };
-  }, [remote, props.address, props.wallet]);
+    })()
+  );
+
+  useEffect(() => {
+    if (client.isSuccess) {
+      setState({ id: "idle" });
+    }
+  }, [client.isSuccess]);
 
   return {
-    sendMessage,
+    sendMessage: (() => {
+      if (state.id !== "idle") {
+        return null;
+      } else {
+        return async ({
+          conversation,
+          content,
+        }: {
+          conversation: z.infer<typeof Lib.zConversation>;
+          content: string;
+        }) => {
+          setState({ id: "pending" });
+
+          try {
+            if (remote === null) {
+              throw new Error("remote is null even thought state.id is idle");
+            }
+            const sent = await remote.sendMessage({ conversation, content });
+            setState({ id: "success", data: sent });
+            return sent;
+          } catch (error) {
+            console.error(error);
+            setState({ id: "error", error });
+          }
+        };
+      }
+    })(),
+    isInactive: state.id === "inactive",
     isIdle: state.id === "idle",
     isPending: state.id === "pending",
     isSuccess: state.id === "success",

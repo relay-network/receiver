@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Wallet } from "@ethersproject/wallet";
 import { useFetchMessages } from "./use-fetch-messages";
-import * as Views from "./example.views";
+import * as Views from "./example.lib";
 
 export const UseFetchMessages = ({ wallet }: { wallet: Wallet }) => {
   const fetchMessages = useFetchMessages({
