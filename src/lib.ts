@@ -83,13 +83,88 @@ export type ListMessagesOptions = z.infer<typeof zListMessagesOptions>;
  *
  *
  *
- * XMTP
+ * ACTIONS
  *
  *
  *
  *
  *
  * *************************************************************************/
+
+export type Actions = {
+  subscribeToClientStore: ({
+    onChange,
+  }: {
+    onChange: (c: AsyncState<undefined>) => void;
+  }) => void;
+  getClient: () => Promise<AsyncState<undefined>>;
+  startClient: (
+    wallet: Signer,
+    opts?: ClientOptions
+  ) => Promise<{ status: 200 | 400 | 500 }>;
+  stopClient: () => Promise<{ status: 200 | 400 | 500 }>;
+  getMessagesStream: () => Promise<AsyncState<undefined>>;
+  subscribeToMessagesStreamStore: ({
+    onChange,
+  }: {
+    onChange: (c: AsyncState<undefined>) => void;
+  }) => void;
+  startMessagesStream: () => Promise<{ status: 200 | 400 | 500 }>;
+  stopMessagesStream: () => Promise<{ status: 200 | 400 | 500 }>;
+  listenToMessagesStream: (
+    handler: (m: Message) => void
+  ) => Promise<{ status: 200 | 400 | 500 }>;
+  subscribeToConversationsStreamStore: ({
+    onChange,
+  }: {
+    onChange: (c: AsyncState<undefined>) => void;
+  }) => void;
+  getConversationsStream: () => Promise<AsyncState<undefined>>;
+  startConversationsStream: () => Promise<{ status: 200 | 400 | 500 }>;
+  stopConversationsStream: () => Promise<{ status: 200 | 400 | 500 }>;
+  listenToConversationsStream: (
+    handler: (c: Conversation) => void
+  ) => Promise<{ status: 200 | 400 | 500 }>;
+  subscribeToConversationStreamsStore: (
+    conversation: Conversation,
+    onChange: (c: AsyncState<undefined>) => void
+  ) => void;
+  getConversationStream: () => Promise<AsyncState<undefined>>;
+  startConversationStream: ({
+    conversation,
+  }: {
+    conversation: Conversation;
+  }) => Promise<{ status: 200 | 400 | 500 }>;
+  stopConversationStream: ({
+    conversation,
+  }: {
+    conversation: Conversation;
+  }) => Promise<{ status: 200 | 400 | 500 }>;
+  listenToConversationStream: (
+    conversation: Conversation,
+    handler: (m: Message) => void
+  ) => Promise<{ status: 200 | 400 | 500 }>;
+  fetchConversations: () => Promise<{
+    status: 200 | 400 | 500;
+    data?: Conversation[];
+  }>;
+  fetchMessages: (
+    conversation: Conversation,
+    opts: ListMessagesOptions
+  ) => Promise<{ status: 200 | 400 | 500; data?: Message[] }>;
+  fetchPeerOnNetwork: ({
+    peerAddress,
+  }: {
+    peerAddress: string;
+  }) => Promise<{ status: 200 | 400 | 500; data?: boolean }>;
+  sendMessage: ({
+    conversation,
+    content,
+  }: {
+    conversation: Conversation;
+    content: string;
+  }) => Promise<{ status: 200 | 400 | 500; data?: Message }>;
+};
 
 export type Xmtp = {
   startClient: (

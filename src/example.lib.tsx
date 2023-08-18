@@ -13,7 +13,7 @@ export const SectionHeader = ({
   className?: string;
   children: ReactNode;
 }) => {
-  return <h1 className={`text-2xl mb-6 ${className}`}>{children}</h1>;
+  return <h1 className={`text-2xl font-bold mb-6 ${className}`}>{children}</h1>;
 };
 
 export const SectionLink = ({
@@ -40,7 +40,11 @@ export const SectionDescription = ({ children }: { children: ReactNode }) => {
 };
 
 export const SubSectionHeader = ({ children }: { children: ReactNode }) => {
-  return <h2 className="text-xl mb-4">{children}</h2>;
+  return <h2 className="text-xl font-bold mb-4">{children}</h2>;
+};
+
+export const StepHeader = ({ children }: { children: ReactNode }) => {
+  return <h3 className="text-lg font-bold mb-2">{children}</h3>;
 };
 
 export const Instruction = ({ children }: { children: ReactNode }) => {
