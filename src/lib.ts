@@ -91,6 +91,22 @@ export type ListMessagesOptions = z.infer<typeof zListMessagesOptions>;
  *
  * *************************************************************************/
 
+type ActionResult<T> =
+  | {
+      status: 200;
+      data: T;
+    }
+  | {
+      status: 400;
+      data?: undefined;
+      error?: string;
+    }
+  | {
+      status: 500;
+      data?: undefined;
+      error?: string;
+    };
+
 export type Actions = {
   subscribeToClientStore: ({
     onChange,
@@ -101,16 +117,16 @@ export type Actions = {
   startClient: (
     wallet: Signer,
     opts?: ClientOptions
-  ) => Promise<{ status: 200 | 400 | 500 }>;
-  stopClient: () => Promise<{ status: 200 | 400 | 500 }>;
+  ) => Promise<ActionResult<unknown>>;
+  stopClient: () => Promise<ActionResult<unknown>>;
   getMessagesStream: () => Promise<AsyncState<undefined>>;
   subscribeToMessagesStreamStore: ({
     onChange,
   }: {
     onChange: (c: AsyncState<undefined>) => void;
   }) => void;
-  startMessagesStream: () => Promise<{ status: 200 | 400 | 500 }>;
-  stopMessagesStream: () => Promise<{ status: 200 | 400 | 500 }>;
+  startMessagesStream: () => Promise<ActionResult<unknown>>;
+  stopMessagesStream: () => Promise<ActionResult<unknown>>;
   listenToMessagesStream: (
     handler: (m: Message) => void
   ) => Promise<{ status: 200 | 400 | 500 }>;
@@ -120,43 +136,42 @@ export type Actions = {
     onChange: (c: AsyncState<undefined>) => void;
   }) => void;
   getConversationsStream: () => Promise<AsyncState<undefined>>;
-  startConversationsStream: () => Promise<{ status: 200 | 400 | 500 }>;
-  stopConversationsStream: () => Promise<{ status: 200 | 400 | 500 }>;
+  startConversationsStream: () => Promise<ActionResult<unknown>>;
+  stopConversationsStream: () => Promise<ActionResult<unknown>>;
   listenToConversationsStream: (
     handler: (c: Conversation) => void
-  ) => Promise<{ status: 200 | 400 | 500 }>;
+  ) => Promise<ActionResult<unknown>>;
   subscribeToConversationStreamsStore: (
     conversation: Conversation,
     onChange: (c: AsyncState<undefined>) => void
   ) => void;
-  getConversationStream: () => Promise<AsyncState<undefined>>;
+  getConversationStream: (
+    conversation: Conversation
+  ) => Promise<AsyncState<undefined>>;
   startConversationStream: ({
     conversation,
   }: {
     conversation: Conversation;
-  }) => Promise<{ status: 200 | 400 | 500 }>;
+  }) => Promise<ActionResult<unknown>>;
   stopConversationStream: ({
     conversation,
   }: {
     conversation: Conversation;
-  }) => Promise<{ status: 200 | 400 | 500 }>;
+  }) => Promise<ActionResult<unknown>>;
   listenToConversationStream: (
     conversation: Conversation,
     handler: (m: Message) => void
-  ) => Promise<{ status: 200 | 400 | 500 }>;
-  fetchConversations: () => Promise<{
-    status: 200 | 400 | 500;
-    data?: Conversation[];
-  }>;
+  ) => Promise<ActionResult<unknown>>;
+  fetchConversations: () => Promise<ActionResult<Conversation[]>>;
   fetchMessages: (
     conversation: Conversation,
     opts: ListMessagesOptions
-  ) => Promise<{ status: 200 | 400 | 500; data?: Message[] }>;
+  ) => Promise<ActionResult<Message[]>>;
   fetchPeerOnNetwork: ({
     peerAddress,
   }: {
     peerAddress: string;
-  }) => Promise<{ status: 200 | 400 | 500; data?: boolean }>;
+  }) => Promise<ActionResult<boolean>>;
   sendMessage: ({
     conversation,
     content,

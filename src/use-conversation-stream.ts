@@ -1,29 +1,7 @@
+import { useState, useEffect } from "react";
 import * as Comlink from "comlink";
 import * as Lib from "./lib";
 import { useXmtp } from "./use-xmtp";
-import { create } from "zustand";
-
-type ConversationStreamsStore = {
-  streams: Record<string, Lib.AsyncState<undefined>>;
-  setStream: (
-    conversation: Lib.Conversation,
-    stream: Lib.AsyncState<undefined>
-  ) => void;
-};
-
-const useConversationStreamsStore = create<ConversationStreamsStore>((set) => ({
-  streams: {},
-  setStream: (conversation, stream) => {
-    const key = Lib.uniqueConversationKey(conversation);
-    return set((prev) => ({
-      ...prev,
-      streams: {
-        ...prev.streams,
-        [key]: stream,
-      },
-    }));
-  },
-}));
 
 export const useConversationStream = ({
   wallet,
@@ -36,33 +14,47 @@ export const useConversationStream = ({
     peerAddress: string;
   };
 }) => {
-  const key = (() => {
-    if (typeof conversation !== "object") {
-      return "STORE_MISS";
-    } else {
-      return Lib.uniqueConversationKey(conversation);
-    }
-  })();
   const xmtp = useXmtp({ wallet });
-  const stream = useConversationStreamsStore((s) => s.streams[key]) || {
-    id: "idle",
-  };
-  const setStream = useConversationStreamsStore((s) => s.setStream);
+  const [stream, setStream] = useState<Lib.AsyncState<undefined> | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      if (xmtp === null || typeof conversation !== "object") {
+        setStream(null);
+      } else {
+        setStream(await xmtp.getConversationStream(conversation));
+      }
+    })();
+  }, [xmtp, conversation]);
+
+  useEffect(() => {
+    if (xmtp === null || typeof conversation !== "object") {
+      return;
+    } else {
+      xmtp.subscribeToConversationStreamsStore(
+        conversation,
+        Comlink.proxy((stream) => {
+          setStream(stream);
+        })
+      );
+    }
+  }, [xmtp, conversation]);
+
+  if (stream === null) {
+    return null;
+  }
 
   if (xmtp === null) {
+    return null;
+  }
+
+  if (typeof wallet !== "object") {
     return null;
   }
 
   if (typeof conversation !== "object") {
     return null;
   }
-
-  xmtp.subscribeToConversationStreamsStore(
-    conversation,
-    Comlink.proxy((stream) => {
-      setStream(conversation, stream);
-    })
-  );
 
   return {
     start: () => xmtp.startConversationStream({ conversation }),

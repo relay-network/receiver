@@ -90,7 +90,7 @@ const startClient: Lib.Actions["startClient"] = async (wallet, opts) => {
     });
 
     clientStore.setState({ client: { id: "success", data: client } });
-    return { status: 200 };
+    return { status: 200, data: undefined };
   } catch (error) {
     clientStore.setState({ client: { id: "error", error } });
     return { status: 500 };
@@ -183,12 +183,12 @@ const startMessagesStream: Lib.Actions["startMessagesStream"] = async () => {
   const stream = messagesStreamStore.getState().stream;
   const client = clientStore.getState().client;
 
-  if (stream.id !== "idle") {
-    return { status: 400 };
+  if (client.id !== "success") {
+    return { status: 400, error: "Client not found but stream is idle" };
   }
 
-  if (client.id !== "success") {
-    throw new Error("Client not found but stream is idle");
+  if (stream.id !== "idle") {
+    return { status: 400, error: "Stream not idle" };
   }
 
   try {
@@ -200,9 +200,14 @@ const startMessagesStream: Lib.Actions["startMessagesStream"] = async () => {
       stream: { id: "success", data: new MessageStream(stream) },
     });
 
-    return { status: 200 };
-  } catch (error) {
-    messagesStreamStore.setState({ stream: { id: "error", error } });
+    return { status: 200, data: undefined };
+  } catch {
+    messagesStreamStore.setState({
+      stream: {
+        id: "error",
+        error: "client.data.conversations.streamAllMessages() threw",
+      },
+    });
     return { status: 500 };
   }
 };
@@ -211,14 +216,16 @@ const stopMessagesStream: Lib.Actions["stopMessagesStream"] = async () => {
   const stream = messagesStreamStore.getState().stream;
 
   if (stream.id !== "success") {
-    return { status: 400 };
+    return { status: 400, error: "Stream not success" };
   }
 
   try {
     messagesStreamStore.setState({ stream: { id: "idle" } });
-    return { status: 200 };
-  } catch (error) {
-    messagesStreamStore.setState({ stream: { id: "error", error } });
+    return { status: 200, data: undefined };
+  } catch {
+    messagesStreamStore.setState({
+      stream: { id: "error", error: "unknown error" },
+    });
     return { status: 500 };
   }
 };
@@ -328,7 +335,7 @@ const startConversationsStream: Lib.Actions["startConversationsStream"] =
       conversationsStreamStore.setState({
         stream: { id: "success", data: new ConversationStream(stream) },
       });
-      return { status: 200 };
+      return { status: 200, data: undefined };
     } catch (error) {
       conversationsStreamStore.setState({ stream: { id: "error", error } });
       return { status: 500 };
@@ -345,7 +352,7 @@ const stopConversationsStream: Lib.Actions["stopConversationsStream"] =
 
     try {
       conversationsStreamStore.setState({ stream: { id: "idle" } });
-      return { status: 200 };
+      return { status: 200, data: undefined };
     } catch (error) {
       conversationsStreamStore.setState({ stream: { id: "error", error } });
       return { status: 500 };
@@ -362,7 +369,7 @@ const listenToConversationsStream: Lib.Actions["listenToConversationsStream"] =
 
     try {
       stream.data.addHandler(handler);
-      return { status: 200 };
+      return { status: 200, data: undefined };
     } catch (error) {
       conversationsStreamStore.setState({ stream: { id: "error", error } });
       return { status: 500 };
@@ -423,12 +430,14 @@ const subscribeToConversationStreamsStore: Lib.Actions["subscribeToConversationS
 
       if (client.id !== "success") {
         onChange({ id: "idle" });
+        return;
       }
 
       const stream = state.streams[key];
 
       if (stream === undefined) {
         onChange({ id: "idle" });
+        return;
       }
 
       switch (stream.id) {
@@ -501,7 +510,7 @@ const startConversationStream: Lib.Actions["startConversationStream"] = async ({
       data: new MessageStream(stream),
     });
 
-    return { status: 200 };
+    return { status: 200, data: undefined };
   } catch (error) {
     setConversationStream(conversation, { id: "error", error });
     return { status: 500 };
@@ -524,7 +533,7 @@ const stopConversationStream: Lib.Actions["stopConversationStream"] = async ({
 
   try {
     setConversationStream(conversation, { id: "idle" });
-    return { status: 200 };
+    return { status: 200, data: undefined };
   } catch (error) {
     setConversationStream(conversation, { id: "error", error });
     return { status: 500 };
@@ -546,7 +555,7 @@ const listenToConversationStream: Lib.Actions["listenToConversationStream"] =
 
     try {
       stream.data.addHandler(handler);
-      return { status: 200 };
+      return { status: 200, data: undefined };
     } catch (error) {
       setConversationStream(conversation, { id: "error", error });
       return { status: 500 };

@@ -28,6 +28,8 @@ export const SectionLink = ({
   return (
     <a
       href={href}
+      target="_blank"
+      rel="noreferrer"
       className={`text-blue-500 mb-4 hover:underline ${className}`}
     >
       {children}
@@ -35,8 +37,14 @@ export const SectionLink = ({
   );
 };
 
-export const SectionDescription = ({ children }: { children: ReactNode }) => {
-  return <p className="text-lg mb-2">{children}</p>;
+export const SectionDescription = ({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) => {
+  return <p className={`text-lg mb-2 ${className}`}>{children}</p>;
 };
 
 export const SubSectionHeader = ({ children }: { children: ReactNode }) => {
@@ -55,14 +63,20 @@ export const PrimaryTextInput = ({
   placeholder,
   onChange,
   value,
+  isError,
 }: {
   placeholder: string;
   onChange: (v: string | null) => void;
   value: string | null;
+  isError?: boolean;
 }) => {
   return (
     <input
-      className="w-80 bg-gray-100 rounded-md p-2 mt-4"
+      className={cn({
+        "w-80 rounded-md p-2 mt-4": true,
+        "bg-gray-100": !isError,
+        "bg-red-100": !!isError,
+      })}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       value={value || ""}
@@ -79,24 +93,23 @@ export const PrimaryButton = ({
   onClickIdle,
   status,
 }: {
-  inactiveText?: string;
+  inactiveText: string;
   idleText: string;
   pendingText: string;
-  successText?: string;
+  successText: string;
   errorText: string;
   onClickIdle: () => void;
-  onClickError?: () => void;
   status: "inactive" | "idle" | "pending" | "success" | "error";
 }) => {
   return (
     <button
       className={cn({
         "font-bold py-2 px-4 mb-6 text-white rounded": true,
-        "bg-gray-500": status === "inactive",
-        "bg-blue-500 hover:bg-blue-700 cursor-pointer": status === "idle",
-        "bg-blue-500 cursor-progress": status === "pending",
-        "bg-green-500": status === "success",
-        "bg-red-500": status === "error",
+        "bg-gray-400": status === "inactive",
+        "bg-blue-500 hover:bg-blue-600 cursor-pointer": status === "idle",
+        "bg-blue-400 cursor-progress": status === "pending",
+        "bg-green-400": status === "success",
+        "bg-red-400": status === "error",
       })}
       onClick={() => {
         if (status !== "idle") {
@@ -115,6 +128,50 @@ export const PrimaryButton = ({
         return idleText;
       })()}
     </button>
+  );
+};
+
+export const status = ({
+  isInactive,
+  isIdle,
+  isPending,
+  isSuccess,
+  isError,
+}: {
+  isInactive?: boolean;
+  isIdle?: boolean;
+  isPending?: boolean;
+  isSuccess?: boolean;
+  isError?: boolean;
+}) => {
+  if (isInactive) return "inactive";
+  if (isIdle) return "idle";
+  if (isPending) return "pending";
+  if (isSuccess) return "success";
+  if (isError) return "error";
+  return "inactive";
+};
+
+export const StatusIndicator = ({
+  status,
+  className,
+}: {
+  status: "inactive" | "idle" | "pending" | "success" | "error";
+  className?: string;
+}) => {
+  return (
+    <div
+      className={cn({
+        "w-full rounded-md p-2 mb-6 min-h-8 flex justify-center items-center":
+          true,
+        "bg-gray-400": status === "inactive",
+        "bg-blue-500": status === "idle",
+        "bg-orange-400": status === "pending",
+        "bg-green-400": status === "success",
+        "bg-red-400": status === "error",
+        [className || ""]: true,
+      })}
+    />
   );
 };
 

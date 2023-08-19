@@ -1,17 +1,7 @@
-import { create } from "zustand";
+import { useState, useEffect } from "react";
 import * as Lib from "./lib";
 import { useXmtp } from "./use-xmtp";
 import * as Comlink from "comlink";
-
-type ConversationStreamStore = {
-  stream: Lib.AsyncState<undefined>;
-  setStream: (stream: Lib.AsyncState<undefined>) => void;
-};
-
-const useConversationStreamStore = create<ConversationStreamStore>((set) => ({
-  stream: { id: "idle" },
-  setStream: (stream) => set({ stream }),
-}));
 
 export const useConversationsStream = ({
   wallet,
@@ -19,8 +9,35 @@ export const useConversationsStream = ({
   wallet?: { address: string };
 }) => {
   const xmtp = useXmtp({ wallet });
-  const stream = useConversationStreamStore((s) => s.stream);
-  const setStream = useConversationStreamStore((s) => s.setStream);
+  const [stream, setStream] = useState<Lib.AsyncState<undefined> | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      if (xmtp === null) {
+        setStream(null);
+      } else {
+        setStream(await xmtp.getConversationsStream());
+      }
+    })();
+  }, [xmtp]);
+
+  useEffect(() => {
+    if (xmtp === null) {
+      return;
+    } else {
+      xmtp.subscribeToConversationsStreamStore(
+        Comlink.proxy({
+          onChange: (stream) => {
+            setStream(stream);
+          },
+        })
+      );
+    }
+  }, [xmtp]);
+
+  if (stream === null) {
+    return null;
+  }
 
   if (xmtp === null) {
     return null;
@@ -29,14 +46,6 @@ export const useConversationsStream = ({
   if (typeof wallet !== "object") {
     return null;
   }
-
-  xmtp.subscribeToConversationsStreamStore(
-    Comlink.proxy({
-      onChange: (stream) => {
-        setStream(stream);
-      },
-    })
-  );
 
   return {
     start: xmtp.startConversationsStream,
