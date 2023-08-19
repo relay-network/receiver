@@ -18,6 +18,7 @@ import { useFetchConversations } from "./use-fetch-conversations.js";
 import { useFetchMessages } from "./use-fetch-messages.js";
 import { useSendMessage } from "./use-send-message.js";
 import { useFetchPeerOnNetwork } from "./use-fetch-peer-on-network.js";
+import { useConversation } from "./use-conversation";
 
 /* ****************************************************************************
  *
@@ -147,13 +148,214 @@ const Walkthrough = () => {
  *
  * ****************************************************************************/
 
+const ucWallet = Wallet.createRandom();
+
+const getAddress = async () => {
+  return ucWallet.address;
+};
+
+const address = ucWallet.address;
+
+const signMessage = (s: string) => {
+  return ucWallet.signMessage(s);
+};
+
+const wallet = {
+  getAddress,
+  address,
+  signMessage,
+};
+
 const UseConversation = () => {
+  const conversation = useConversation({
+    conversation: { peerAddress: "0xf89773CF7cf0B560BC5003a6963b98152D84A15a" },
+    wallet,
+  });
+
+  console.log("USE CONVERSATION", conversation);
+
+  const statuses = (() => {
+    if (conversation === null) {
+      console.log("CONVERSATION IS NULL");
+      return {
+        enable: {},
+        login: {},
+        fetch: {},
+        stream: {},
+        send: {},
+      };
+    }
+
+    return {
+      enable: {
+        isIdle: conversation.isEnableIdle,
+        isPending: conversation.isEnablePending,
+        isSuccess: conversation.isEnableSuccess,
+        isError: conversation.isEnableError,
+      },
+      login: {
+        isIdle: conversation.isLoginIdle,
+        isPending: conversation.isLoginPending,
+        isSuccess: conversation.isLoginSuccess,
+        isError: conversation.isLoginError,
+      },
+      fetch: {
+        isIdle: conversation.isFetchIdle,
+        isPending: conversation.isFetchPending,
+        isSuccess: conversation.isFetchSuccess,
+        isError: conversation.isFetchError,
+      },
+      stream: {
+        isIdle: conversation.isStreamIdle,
+        isPending: conversation.isStreamPending,
+        isSuccess: conversation.isStreamSuccess,
+        isError: conversation.isStreamError,
+      },
+      send: {
+        isIdle: conversation.isSendIdle,
+        isPending: conversation.isSendPending,
+        isSuccess: conversation.isSendSuccess,
+        isError: conversation.isSendError,
+      },
+    };
+  })();
+
   return (
     <Lib.Section>
       <Lib.SectionHeader className="mb-0">useConversation</Lib.SectionHeader>
       <Lib.SectionLink href="https://github.com/relay-network/receiver/src/use-conversation.ts">
         source
       </Lib.SectionLink>
+      <Lib.SectionDescription>
+        <em>conversation.enable status</em>
+      </Lib.SectionDescription>
+      <Lib.StatusIndicator status={Lib.status(statuses.enable)} />
+      <Lib.PrimaryButton
+        onClickIdle={() => {
+          if (conversation === null) {
+            throw new Error("Conversation is null even though it's idle");
+          } else {
+            conversation.enable();
+          }
+        }}
+        inactiveText="DISABLED (connect wallet first)"
+        idleText="ENABLE XMTP"
+        errorText="ENABLE XMTP ERROR"
+        pendingText="ENABLING XMTP"
+        successText="ENABLED XMTP"
+        status={(() => {
+          if (conversation === null) return "inactive";
+          if (conversation.isEnableError) return "error";
+          if (conversation.isEnableSuccess) return "success";
+          if (conversation.isEnablePending) return "pending";
+          if (conversation.isEnableIdle) return "idle";
+          throw new Error("Unhandled client state");
+        })()}
+      />
+      <Lib.SectionDescription>
+        <em>conversation.login status</em>
+      </Lib.SectionDescription>
+      <Lib.StatusIndicator status={Lib.status(statuses.login)} />
+      <Lib.PrimaryButton
+        onClickIdle={() => {
+          if (conversation === null) {
+            throw new Error("Conversation is null even though it's idle");
+          } else {
+            conversation.login();
+          }
+        }}
+        inactiveText="DISABLED (enable xmtp first)"
+        idleText="LOGIN XMTP"
+        errorText="LOGIN XMTP ERROR"
+        pendingText="LOGGING IN XMTP"
+        successText="LOGGED IN XMTP"
+        status={(() => {
+          if (conversation === null) return "inactive";
+          if (conversation.isLoginError) return "error";
+          if (conversation.isLoginSuccess) return "success";
+          if (conversation.isLoginPending) return "pending";
+          if (conversation.isLoginIdle) return "idle";
+          throw new Error("Unhandled client state");
+        })()}
+      />
+      <Lib.SectionDescription>
+        <em>conversation.fetch status</em>
+      </Lib.SectionDescription>
+      <Lib.StatusIndicator status={Lib.status(statuses.fetch)} />
+      <Lib.PrimaryButton
+        onClickIdle={() => {
+          if (conversation === null) {
+            throw new Error("Conversation is null even though it's idle");
+          } else {
+            conversation.fetch();
+          }
+        }}
+        inactiveText="DISABLED (login xmtp first)"
+        idleText="FETCH XMTP"
+        errorText="FETCH XMTP ERROR"
+        pendingText="FETCHING XMTP"
+        successText="FETCHED XMTP"
+        status={(() => {
+          if (conversation === null) return "inactive";
+          if (conversation.isFetchError) return "error";
+          if (conversation.isFetchSuccess) return "success";
+          if (conversation.isFetchPending) return "pending";
+          if (conversation.isFetchIdle) return "idle";
+          throw new Error("Unhandled client state");
+        })()}
+      />
+      <Lib.SectionDescription>
+        <em>conversation.stream status</em>
+      </Lib.SectionDescription>
+      <Lib.StatusIndicator status={Lib.status(statuses.stream)} />
+      <Lib.PrimaryButton
+        onClickIdle={() => {
+          if (conversation === null) {
+            throw new Error("Conversation is null even though it's idle");
+          } else {
+            conversation.stream();
+          }
+        }}
+        inactiveText="DISABLED (fetch xmtp first)"
+        idleText="STREAM XMTP"
+        errorText="STREAM XMTP ERROR"
+        pendingText="STREAMING XMTP"
+        successText="STREAMED XMTP"
+        status={(() => {
+          if (conversation === null) return "inactive";
+          if (conversation.isStreamError) return "error";
+          if (conversation.isStreamSuccess) return "success";
+          if (conversation.isStreamPending) return "pending";
+          if (conversation.isStreamIdle) return "idle";
+          throw new Error("Unhandled client state");
+        })()}
+      />
+      <Lib.SectionDescription>
+        <em>conversation.send status</em>
+      </Lib.SectionDescription>
+      <Lib.StatusIndicator status={Lib.status(statuses.send)} />
+      <Lib.PrimaryButton
+        onClickIdle={() => {
+          if (conversation === null) {
+            throw new Error("Conversation is null even though it's idle");
+          } else {
+            conversation.send("Hello!");
+          }
+        }}
+        inactiveText="DISABLED (stream xmtp first)"
+        idleText="SEND XMTP"
+        errorText="SEND XMTP ERROR"
+        pendingText="SENDING XMTP"
+        successText="SENT XMTP"
+        status={(() => {
+          if (conversation === null) return "inactive";
+          if (conversation.isSendError) return "error";
+          if (conversation.isSendSuccess) return "success";
+          if (conversation.isSendPending) return "pending";
+          if (conversation.isSendIdle) return "idle";
+          throw new Error("Unhandled client state");
+        })()}
+      />
     </Lib.Section>
   );
 };
@@ -1249,49 +1451,49 @@ const FetchPeerOnNetworkButton = ({
   );
 };
 
-// export const ConnectAWallet = () => {
-//   return (
-//     <Lib.Section>
-//       <Lib.SectionDescription>
-//         The first thing we need is a reference to the user's wallet. The wallet
-//         is used to create an XMTP identity (for new users) or sign into an
-//         exising XMTP identity (for returning users). In this tutorial we use{" "}
-//         <Lib.SectionLink href="https://rainbowkit.com">
-//           RainbowKit
-//         </Lib.SectionLink>{" "}
-//         and <Lib.SectionLink href="https://wagmi.sh">Wagmi</Lib.SectionLink>,
-//         but any SDK that exposes a signer should work. Today, you're the user,
-//         use the button to connect a wallet:
-//       </Lib.SectionDescription>
-//     </Lib.Section>
-//   );
-// };
+export const ConnectAWallet = () => {
+  return (
+    <Lib.Section>
+      <Lib.SectionDescription>
+        The first thing we need is a reference to the user's wallet. The wallet
+        is used to create an XMTP identity (for new users) or sign into an
+        exising XMTP identity (for returning users). In this tutorial we use{" "}
+        <Lib.SectionLink href="https://rainbowkit.com">
+          RainbowKit
+        </Lib.SectionLink>{" "}
+        and <Lib.SectionLink href="https://wagmi.sh">Wagmi</Lib.SectionLink>,
+        but any SDK that exposes a signer should work. Today, you're the user,
+        use the button to connect a wallet:
+      </Lib.SectionDescription>
+    </Lib.Section>
+  );
+};
 
-// export const EnableXmtp = () => {
-//   const wallet = Lib.useSigner();
-//   const client = useClient({ wallet });
+export const EnableXmtp = () => {
+  const wallet = Lib.useSigner();
+  const client = useClient({ wallet });
 
-//   return (
-//     <Lib.Section>
-//       <div id="EnableXmtp" className="flex items-center">
-//         <Lib.SectionHeader className="mr-auto">Enable XMTP</Lib.SectionHeader>
-//         <Lib.SectionLink href="https://github.com/relay-network/receiver/src/use-client.ts">
-//           useClient
-//         </Lib.SectionLink>
-//       </div>
-//       <Lib.SectionDescription>
-//         A user enables XMTP by signing a special message. The resulting
-//         signature is used to create an XMTP identity, authenticate with the
-//         network, and secure message payloads. Once a user has enabled XMTP, they
-//         can sign into their identity using a similar signing process.
-//       </Lib.SectionDescription>
-//       <Lib.SectionDescription>
-//         If the button above is green, you've successfully started an XMTP client
-//         and can start working with streaming.
-//       </Lib.SectionDescription>
-//     </Lib.Section>
-//   );
-// };
+  return (
+    <Lib.Section>
+      <div id="EnableXmtp" className="flex items-center">
+        <Lib.SectionHeader className="mr-auto">Enable XMTP</Lib.SectionHeader>
+        <Lib.SectionLink href="https://github.com/relay-network/receiver/src/use-client.ts">
+          useClient
+        </Lib.SectionLink>
+      </div>
+      <Lib.SectionDescription>
+        A user enables XMTP by signing a special message. The resulting
+        signature is used to create an XMTP identity, authenticate with the
+        network, and secure message payloads. Once a user has enabled XMTP, they
+        can sign into their identity using a similar signing process.
+      </Lib.SectionDescription>
+      <Lib.SectionDescription>
+        If the button above is green, you've successfully started an XMTP client
+        and can start working with streaming.
+      </Lib.SectionDescription>
+    </Lib.Section>
+  );
+};
 
 // const UseMessageStream = () => {
 //   const wallet = Lib.useSigner();
@@ -1777,27 +1979,27 @@ const WALLETS = [
  * ****************************************************************************/
 
 const App = () => {
-  const client0 = useClient({ wallet: WALLETS[0] });
-  const client1 = useClient({ wallet: WALLETS[1] });
-  const client2 = useClient({ wallet: WALLETS[2] });
+  // const client0 = useClient({ wallet: WALLETS[0] });
+  // const client1 = useClient({ wallet: WALLETS[1] });
+  // const client2 = useClient({ wallet: WALLETS[2] });
 
-  useEffect(() => {
-    if (client0 !== null) {
-      client0.start();
-    }
-  }, [client0 === null]);
+  // useEffect(() => {
+  //   if (client0 !== null) {
+  //     client0.start();
+  //   }
+  // }, [client0 === null]);
 
-  useEffect(() => {
-    if (client1 !== null) {
-      client1.start();
-    }
-  }, [client1]);
+  // useEffect(() => {
+  //   if (client1 !== null) {
+  //     client1.start();
+  //   }
+  // }, [client1]);
 
-  useEffect(() => {
-    if (client2 !== null) {
-      client2.start();
-    }
-  }, [client2]);
+  // useEffect(() => {
+  //   if (client2 !== null) {
+  //     client2.start();
+  //   }
+  // }, [client2]);
 
   return (
     <WagmiConfig config={wagmiConfig}>

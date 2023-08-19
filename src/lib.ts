@@ -91,7 +91,7 @@ export type ListMessagesOptions = z.infer<typeof zListMessagesOptions>;
  *
  * *************************************************************************/
 
-type ActionResult<T> =
+export type ActionResult<T> =
   | {
       status: 200;
       data: T;
@@ -178,7 +178,7 @@ export type Actions = {
   }: {
     conversation: Conversation;
     content: string;
-  }) => Promise<{ status: 200 | 400 | 500; data?: Message }>;
+  }) => Promise<ActionResult<Message>>;
 };
 
 export type Xmtp = {

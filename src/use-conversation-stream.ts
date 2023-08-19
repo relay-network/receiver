@@ -25,7 +25,7 @@ export const useConversationStream = ({
         setStream(await xmtp.getConversationStream(conversation));
       }
     })();
-  }, [xmtp, conversation]);
+  }, [xmtp, typeof conversation !== "object"]);
 
   useEffect(() => {
     if (xmtp === null || typeof conversation !== "object") {
@@ -38,11 +38,7 @@ export const useConversationStream = ({
         })
       );
     }
-  }, [xmtp, conversation]);
-
-  if (stream === null) {
-    return null;
-  }
+  }, [xmtp, typeof conversation !== "object"]);
 
   if (xmtp === null) {
     return null;
@@ -53,6 +49,10 @@ export const useConversationStream = ({
   }
 
   if (typeof conversation !== "object") {
+    return null;
+  }
+
+  if (stream === null) {
     return null;
   }
 
