@@ -2,8 +2,18 @@ import { ReactNode } from "react";
 import { cn } from "./lib";
 import { useAccount, useWalletClient } from "wagmi";
 
-export const Section = ({ children }: { children: ReactNode }) => {
-  return <div className="flex flex-col mb-8">{children}</div>;
+export const Section = ({
+  id,
+  children,
+}: {
+  id?: string;
+  children: ReactNode;
+}) => {
+  return (
+    <div id={id} className="flex flex-col mb-8">
+      {children}
+    </div>
+  );
 };
 
 export const SectionHeader = ({
@@ -13,7 +23,7 @@ export const SectionHeader = ({
   className?: string;
   children: ReactNode;
 }) => {
-  return <h1 className={`text-2xl font-bold mb-6 ${className}`}>{children}</h1>;
+  return <h1 className={`text-2xl font-bold ${className}`}>{children}</h1>;
 };
 
 export const SectionLink = ({
@@ -30,6 +40,31 @@ export const SectionLink = ({
       href={href}
       target="_blank"
       rel="noreferrer"
+      className={`text-blue-500 mb-4 hover:underline ${className}`}
+    >
+      {children}
+    </a>
+  );
+};
+
+export const SectionRef = ({
+  id,
+  children,
+  className,
+}: {
+  id: string;
+  children: ReactNode;
+  className?: string;
+}) => {
+  return (
+    <a
+      onClick={(e) => {
+        e.preventDefault();
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      }}
       className={`text-blue-500 mb-4 hover:underline ${className}`}
     >
       {children}
@@ -64,18 +99,21 @@ export const PrimaryTextInput = ({
   onChange,
   value,
   isError,
+  className,
 }: {
   placeholder: string;
   onChange: (v: string | null) => void;
   value: string | null;
   isError?: boolean;
+  className?: string;
 }) => {
   return (
     <input
       className={cn({
-        "w-80 rounded-md p-2 mt-4": true,
+        "w-80 rounded-md p-2": true,
         "bg-gray-100": !isError,
         "bg-red-100": !!isError,
+        [className || ""]: true,
       })}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
@@ -92,6 +130,7 @@ export const PrimaryButton = ({
   errorText,
   onClickIdle,
   status,
+  className,
 }: {
   inactiveText: string;
   idleText: string;
@@ -100,16 +139,18 @@ export const PrimaryButton = ({
   errorText: string;
   onClickIdle: () => void;
   status: "inactive" | "idle" | "pending" | "success" | "error";
+  className?: string;
 }) => {
   return (
     <button
       className={cn({
-        "font-bold py-2 px-4 mb-6 text-white rounded": true,
+        "font-bold py-2 px-4 mb-4 text-white rounded": true,
         "bg-gray-400": status === "inactive",
         "bg-blue-500 hover:bg-blue-600 cursor-pointer": status === "idle",
         "bg-blue-400 cursor-progress": status === "pending",
         "bg-green-400": status === "success",
         "bg-red-400": status === "error",
+        [className || ""]: true,
       })}
       onClick={() => {
         if (status !== "idle") {

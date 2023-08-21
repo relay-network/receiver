@@ -1,19 +1,41 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect } from "react";
 import * as Lib from "./lib";
-import { useClient } from "./use-client";
 import { useConversationStream } from "./use-conversation-stream";
 import { useSendMessage } from "./use-send-message";
 import { useFetchPeerOnNetwork } from "./use-fetch-peer-on-network";
-import { useBurner } from "./use-burner";
 import { useFetchMessages } from "./use-fetch-messages";
+import { useClient } from "./use-client";
 
 export const useConversation = ({
   wallet,
   conversation,
+  opts,
 }: {
   wallet?: Lib.Signer;
   conversation?: Lib.Conversation;
+  opts?: {
+    stream?: boolean;
+    fetch?: boolean;
+    onMessage?: (message: Lib.Message) => void;
+  };
 }) => {
+  /* ***************************************************************************
+   * Messsages
+   * **************************************************************************/
+
+  const [messages, setMessages] = useState<Lib.Message[]>([]);
+
+  const pushMessage = (message: Lib.Message) => {
+    setMessages((prev) => {
+      const pms = [...prev];
+      const pm = pms.find((pm) => pm.id === message.id);
+      if (pm !== undefined) {
+        return pms;
+      }
+      return [...pms, message];
+    });
+  };
+
   /* ***************************************************************************
    * Client
    * **************************************************************************/
@@ -26,241 +48,121 @@ export const useConversation = ({
 
   const stream = useConversationStream({ conversation, wallet });
 
-  /* ***************************************************************************
-   * Burner
-   * **************************************************************************/
+  useEffect(() => {
+    if (opts?.stream === false) {
+      return;
+    }
 
-  const burner = useBurner();
+    if (stream === null) {
+      return;
+    }
 
-  /* ***************************************************************************
-   * fetchUserOnNetwork
-   * **************************************************************************/
+    if (client?.isSuccess !== true) {
+      return;
+    }
 
-  const fetchUserOnNetwork = useFetchPeerOnNetwork({ wallet: burner });
-  const [fetchUserOnNetworkState, setFetchUserOnNetworkState] =
-    useState<Lib.AsyncState<boolean> | null>(null);
+    stream.start();
+  }, [stream === null, client?.isSuccess, opts?.stream]);
 
   useEffect(() => {
-    if (fetchUserOnNetwork === null) {
+    if (opts?.stream === false) {
       return;
     }
 
-    if (typeof wallet !== "object") {
+    if (stream === null) {
       return;
     }
 
-    (async () => {
-      try {
-        setFetchUserOnNetworkState({ id: "pending" });
-        const user = await fetchUserOnNetwork({ peerAddress: wallet.address });
-        if (user.status === 200) {
-          setFetchUserOnNetworkState({ id: "success", data: user.data });
-        } else {
-          setFetchUserOnNetworkState({ id: "error", error: undefined });
-        }
-      } catch {
-        setFetchUserOnNetworkState({ id: "error", error: undefined });
+    if (!stream.isSuccess) {
+      return;
+    }
+
+    stream.listen((m) => {
+      if (typeof opts?.onMessage === "function") {
+        opts.onMessage(m);
       }
-    })();
-  }, [fetchUserOnNetwork === null, typeof wallet !== "object"]);
+
+      pushMessage(m);
+    });
+  }, [
+    stream === null,
+    stream?.isSuccess,
+    opts?.stream,
+    typeof opts?.onMessage,
+  ]);
 
   /* ***************************************************************************
-   * Enable
+   * PeerOnNetwork
    * **************************************************************************/
 
-  const [_enableState, setEnableState] =
-    useState<Lib.AsyncState<undefined> | null>(null);
-
-  const enable = useMemo(() => {
-    if (client === null) {
-      return null;
-    }
-
-    return async () => {
-      try {
-        setEnableState({ id: "pending" });
-        const enabled = await client.start();
-        if (enabled.status === 200) {
-          setEnableState({ id: "success", data: undefined });
-        } else {
-          setEnableState({ id: "error", error: undefined });
-        }
-      } catch {
-        setEnableState({ id: "error", error: undefined });
-      }
-    };
-  }, [client === null]);
-
-  const enableState: typeof _enableState = (() => {
-    if (client === null) {
-      return null;
-    }
-
-    if (_enableState === null) {
-      return { id: "idle" };
-    }
-
-    return _enableState;
-  })();
-
-  /* ****************************************************************************
-   * Login
-   * ***************************************************************************/
-
-  const [_loginState, setLoginState] =
-    useState<Lib.AsyncState<undefined> | null>(null);
-
-  const login = useMemo(() => {
-    if (client === null) {
-      return null;
-    }
-
-    return async () => {
-      try {
-        setLoginState({ id: "pending" });
-        const loggedIn = await client.start();
-        if (loggedIn.status === 200) {
-          setLoginState({ id: "success", data: undefined });
-        } else {
-          setLoginState({ id: "error", error: undefined });
-        }
-      } catch {
-        setLoginState({ id: "error", error: undefined });
-      }
-    };
-  }, [client === null]);
-
-  const loginState: typeof _loginState = (() => {
-    if (client === null) {
-      return null;
-    }
-
-    if (_loginState === null) {
-      return { id: "idle" };
-    }
-
-    return _loginState;
-  })();
+  const fetchPeerOnNetwork = useFetchPeerOnNetwork({
+    wallet,
+    peerAddress: conversation?.peerAddress,
+  });
 
   /* ***************************************************************************
    * Fetch
    * **************************************************************************/
 
-  const fetchMessages = useFetchMessages({ wallet });
-  const [_fetchState, setFetchState] = useState<Lib.AsyncState<
-    Lib.Message[]
-  > | null>(null);
+  const _fetchMessages = useFetchMessages({ wallet });
 
-  const fetch = useMemo(() => {
+  const fetchMessages = (() => {
+    if (_fetchMessages === null) {
+      return null;
+    }
+
     if (typeof conversation !== "object") {
       return null;
     }
 
-    if (typeof wallet !== "object") {
-      return null;
+    return () => {
+      return _fetchMessages.fetch({ conversation });
+    };
+  })();
+
+  useEffect(() => {
+    if (opts?.fetch === false) {
+      return;
     }
 
     if (fetchMessages === null) {
-      return null;
+      return;
     }
 
-    return async () => {
-      try {
-        setFetchState({ id: "pending" });
-        const response = await fetchMessages(conversation, {});
-
-        if (response.status === 200) {
-          setFetchState({ id: "success", data: response.data });
-        } else {
-          setFetchState({ id: "error", error: undefined });
-        }
-      } catch {
-        setFetchState({ id: "error", error: undefined });
-      }
-    };
-  }, [
-    typeof conversation !== "object",
-    typeof wallet !== "object",
-    fetchMessages === null,
-  ]);
-
-  const fetchState: typeof _fetchState = (() => {
     if (typeof conversation !== "object") {
-      return null;
+      return;
     }
 
-    if (typeof wallet !== "object") {
-      return null;
+    if (client?.isSuccess !== true) {
+      return;
     }
 
-    if (_fetchState === null) {
-      return { id: "idle" };
-    }
-
-    return _fetchState;
-  })();
+    fetchMessages();
+  }, [
+    fetchMessages === null,
+    typeof conversation !== "object",
+    opts?.fetch,
+    client?.isSuccess,
+  ]);
 
   /* ***************************************************************************
    * Send
    * **************************************************************************/
 
-  const sendMessage = useSendMessage({ wallet });
-  const [_sendMessageState, setSendMessageState] =
-    useState<Lib.AsyncState<Lib.Message> | null>(null);
+  const sendMessage = useSendMessage({ wallet, conversation });
 
-  const send = useMemo(() => {
-    if (typeof conversation !== "object") {
-      return null;
-    }
-
-    if (typeof wallet !== "object") {
-      return null;
-    }
-
+  const send = (() => {
     if (sendMessage === null) {
       return null;
     }
 
-    return async (content: string) => {
-      try {
-        setSendMessageState({ id: "pending" });
-        const response = await sendMessage({
-          conversation,
-          content,
-        });
-
-        if (response.status === 200) {
-          setSendMessageState({ id: "success", data: response.data });
-          return response.data;
-        } else {
-          setSendMessageState({ id: "error", error: undefined });
-          throw new Error();
-        }
-      } catch {
-        setSendMessageState({ id: "error", error: undefined });
-        throw new Error();
-      }
-    };
-  }, [
-    typeof conversation !== "object",
-    typeof wallet !== "object",
-    sendMessage === null,
-  ]);
-
-  const sendMessageState: typeof _sendMessageState = (() => {
     if (typeof conversation !== "object") {
       return null;
     }
 
-    if (typeof wallet !== "object") {
-      return null;
-    }
-
-    if (_sendMessageState === null) {
-      return { id: "idle" };
-    }
-
-    return _sendMessageState;
+    return ({ content }: { content: string }) => {
+      return sendMessage.send({ content });
+    };
   })();
 
   /* ***************************************************************************
@@ -268,77 +170,70 @@ export const useConversation = ({
    * **************************************************************************/
 
   if (client === null) {
+    console.log("USE CONVERSATION client is null");
     return null;
   }
 
   if (typeof wallet !== "object") {
+    console.log("USE CONVERSATION wallet is not an object");
     return null;
   }
 
   if (typeof conversation !== "object") {
+    console.log("USE CONVERSATION conversation is not an object");
     return null;
   }
 
   if (stream === null) {
+    console.log("USE CONVERSATION stream is null");
     return null;
   }
 
   if (stream.start === null) {
+    console.log("USE CONVERSATION stream.start is null");
     throw new Error("stream.start is null even though stream is not null");
   }
 
-  if (enableState === null) {
+  if (fetchPeerOnNetwork === null) {
     return null;
   }
 
-  if (enable === null) {
-    throw new Error("enable is null even though enableState is not null");
-  }
-
-  if (loginState === null) {
+  if (fetchMessages === null) {
     return null;
   }
 
-  if (login === null) {
-    throw new Error("login is null even though loginState is not null");
-  }
-
-  if (fetchState === null) {
+  if (_fetchMessages === null) {
     return null;
   }
 
-  if (fetch === null) {
-    throw new Error("fetch is null even though fetchState is not null");
-  }
-
-  if (sendMessageState === null) {
+  if (sendMessage === null) {
     return null;
   }
 
   if (send === null) {
-    throw new Error("send is null even though sendMessageState is not null");
+    throw new Error("send is null even though sendMessage is not null");
   }
 
   return {
-    enable,
-    isEnableIdle: enableState?.id === "idle",
-    isEnablePending: enableState?.id === "pending",
-    isEnableSuccess: enableState?.id === "success",
-    isEnableError: enableState?.id === "error",
-    enableError: enableState?.error,
-    login,
-    isLoginIdle: loginState?.id === "idle",
-    isLoginPending: loginState?.id === "pending",
-    isLoginSuccess: loginState?.id === "success",
-    isLoginError: loginState?.id === "error",
-    loginError: loginState?.error,
-    fetch,
-    isFetchIdle: fetchState?.id === "idle",
-    isFetchPending: fetchState?.id === "pending",
-    isFetchSuccess: fetchState?.id === "success",
-    isFetchError: fetchState?.id === "error",
-    fetchError: fetchState?.error,
-    messages: fetchState?.data ?? [],
+    login: client.start,
+    isLoginIdle: client.isIdle,
+    isLoginPending: client.isPending,
+    isLoginSuccess: client.isSuccess,
+    isLoginError: client.isError,
+    loginError: client.error,
+    fetchPeerOnNetwork: fetchPeerOnNetwork.fetch,
+    isPeerOnNetwork: fetchPeerOnNetwork.isPeerOnNetwork,
+    isPeerOnNetworkIdle: fetchPeerOnNetwork.isIdle,
+    isPeerOnNetworkPending: fetchPeerOnNetwork.isPending,
+    isPeerOnNetworkSuccess: fetchPeerOnNetwork.isSuccess,
+    isPeerOnNetworkError: fetchPeerOnNetwork.isError,
+    peerOnNetworkError: fetchPeerOnNetwork.error,
+    fetchMessages,
+    isFetchIdle: _fetchMessages.isIdle,
+    isFetchPending: _fetchMessages.isPending,
+    isFetchSuccess: _fetchMessages.isSuccess,
+    isFetchError: _fetchMessages.isError,
+    fetchError: _fetchMessages.error,
     stream: stream.start,
     isStreamIdle: stream.isIdle,
     isStreamPending: stream.isPending,
@@ -346,10 +241,11 @@ export const useConversation = ({
     isStreamError: stream.isError,
     streamError: stream.error,
     send,
-    isSendIdle: sendMessageState?.id === "idle",
-    isSendPending: sendMessageState?.id === "pending",
-    isSendSuccess: sendMessageState?.id === "success",
-    isSendError: sendMessageState?.id === "error",
-    sendError: sendMessageState?.error,
+    isSendIdle: sendMessage.isIdle,
+    isSendPending: sendMessage.isPending,
+    isSendSuccess: sendMessage.isSuccess,
+    isSendError: sendMessage.isError,
+    sendError: sendMessage.error,
+    messages,
   };
 };
